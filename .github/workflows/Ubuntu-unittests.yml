@@ -1,0 +1,13 @@
+name: Ubuntu-unittests
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v1
+      - name: Run tests
+        run: |
+          cd test
+          PYTHONPATH="../" python3 test_index.py

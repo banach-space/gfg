@@ -58,7 +58,6 @@ def write_to_mmapped_file(mmaped_file, data, format_char):
     per `Git index format` [1], all binary numbers are in network byte order.
     As documented in [3], this translates to `!` in the format string.
 
-
     Args:
         mmaped_file - the memory mapped file to write to
         data - integer to write
@@ -82,6 +81,7 @@ class IndexFile():
     list of limitations documented in the module docstring.
     """
     header = None
+    # A list of index entries. Every item is a tuple: (idx, entry)
     entries = []
     extensions = None
     checksum = None
@@ -91,9 +91,21 @@ class IndexFile():
         self.index_file_name = filename
 
     def validate(self):
-        assert len(self.entries) == self.header.num_entries, "GFG: The index header and actual contents are inconsistent."
+        """Validate the contents stored by this IndexFile
+        """
+        assert len(self.entries) == self.header.num_entries, \
+            "GFG: The index header and actual " \
+            "contents are inconsistent."
 
     def parse(self):
+        """Parse the self.index_file_name index file
+
+        Opens, reads and parses the contents of self.index_file_name. Member fields are set
+        accordingly.
+
+        Limitations:
+            * The extensions are just read and stored as bytes rather than parsed.
+        """
         with open(self.index_file_name, "rb") as index_file_obj:
             index_file = mmap.mmap(
                 index_file_obj.fileno(), 0, prot=mmap.PROT_READ)
@@ -122,25 +134,34 @@ class IndexFile():
 
             index_file.close()
 
-    def print_to_file(self, filename=None):
-        if filename is None:
-            filename = self.index_file_name
+    def print_to_file(self, output_file=None):
+        """Prints the contents of this class into a physical file
 
-        with open(filename, "wb") as index_file:
-            # print(len(self.entries))
+        Goes over all fields stored in the self object and prints them into output_file as binary
+        data (i.e. according to the spec [1]).
 
+        Args:
+            * output_file - the name of the output index file (defaults to self.index_file_name,
+            i.e. the original file is overwritten with potentially updated data)
+        """
+        if output_file is None:
+            output_file = self.index_file_name
+
+        with open(output_file, "wb") as index_file:
             self.header.write(index_file)
-            # print(self.header.__dict__)
 
-            for entry in self.entries:
-                # print(entry[1].__dict__)
-                entry[1].write(index_file, self.header.ver_num)
+            for _, entry in self.entries:
+                entry.write(index_file, self.header.ver_num)
 
             index_file.write(self.extensions)
             index_file.write(binascii.unhexlify(self.checksum.encode()))
             index_file.close()
 
     def print_to_stdout(self):
+        """Prints the contents of this class into stdout
+
+        Goes over all fields stored in the self object and prints them into stdout in textual form.
+        """
         pprint(self.header.__dict__)
 
         for entry in self.entries:
@@ -150,19 +171,35 @@ class IndexFile():
         print("[checksum]")
         pprint(self.checksum)
 
-    def get_entry_by_filename(self, file_to_retrieve):
-        _, file_name = os.path.split(file_to_retrieve)
-        matching_entries = [entry for entry in self.entries
-                            if os.path.split(entry[1].path_name)[1] == file_name]
+    def get_entries_by_filename(self, file_to_retrieve):
+        """Retrieve index entries corresponding to the specified file
 
-        if len(matching_entries) == 1:
-            return matching_entries[0]
-        else:
+        Retrieves the list of index entries that correspond to file_to_retrieve.  Note that there
+        might be more than one such entry, e.g. when there are multiple files with similar names,
+        but in different subdirectories. Currently in such cases an exception is raised.
+
+        TODO: Add support for repositories in which similarly named files are stored in multiple
+        subdirectories.
+
+        Args:
+            file_to_retrieve - name of the file for which the index entries are requested
+        Returns:
+            A list of matching index entries
+        """
+        _, file_name = os.path.split(file_to_retrieve)
+        matching_entries = [entry for _, entry in self.entries
+                            if os.path.split(entry.path_name)[1] == file_name]
+
+        if not len(matching_entries) == 1:
             raise Exception(
                 "GFG: More than one path matches the query. Resolution not yet support")
 
+        return matching_entries
 
-class IndexHeader(object):
+
+class IndexHeader():
+    """Represents a Git index header
+    """
     # 4-byte signature, b"DIRC"
     signature = None
     # 4-byte version number
@@ -171,24 +208,41 @@ class IndexHeader(object):
     num_entries = None
 
     def write(self, index_file):
+        """Save this header to a file
+
+        Saves this header to a memory mapped Git index file. The header is assumed to
+        be formatted as specified by the docs [1].
+
+        Args:
+            index_file - memory mapped Git index file to write to
+        """
         index_file.write(self.signature.encode())
-
         write_to_mmapped_file(index_file, self.ver_num, "I")
-
         write_to_mmapped_file(index_file, self.num_entries, "I")
 
     def read(self, index_file):
+        """Read Git index header from a file
+
+        Reads header from the input memory mapped Git index file. The header is assumed to
+        be formatted as specified by the docs [1]. The data is saved in `self`.
+
+        Args:
+            index_file - memory mapped Git index file to read from
+        """
         self.signature = index_file.read(4).decode("ascii")
         assert self.signature == "DIRC", "Not a Git index file"
 
         self.ver_num = read_from_mmapped_file(index_file, "I")
-        assert self.ver_num in {
-            2, 3, 4}, f"Unsupported version: {self.ver_num}"
+        assert self.ver_num in {2, 3}, f"Unsupported version: {self.ver_num}"
 
         self.num_entries = read_from_mmapped_file(index_file, "I")
 
 
-class IndexEntry(object):
+class IndexEntry():
+    """Represents a Git index entry
+    """
+    # pylint: disable=too-many-instance-attributes
+
     # The last time a file's metadata changed
     ctime_s = None
     ctime_ns = None
@@ -237,6 +291,16 @@ class IndexEntry(object):
     path_name = None
 
     def write(self, index_file, ver_num):
+        """Save this entry to a file
+
+        Saves this index entry to a memory mapped Git index file. The entry is assumed to be
+        formattted as specified by the docs [1]. Note that the format was extended in Version
+        3 and then further in Version 4.
+
+        Args:
+            index_file - memory mapped Git index file to write to
+            ver_num - version number for the this index file (available in index header)
+        """
         # The last time a file's metadata changed
         write_to_mmapped_file(index_file, self.ctime_s, "I")
         write_to_mmapped_file(index_file, self.ctime_ns, "I",)
@@ -313,6 +377,16 @@ class IndexEntry(object):
             assert num_written_null_bytes == pad_len_b, "Error, failed to write padded bits"
 
     def read(self, index_file, ver_num):
+        """Read Git index entry from a file
+
+        Reads index from the input memory mapped Git index file. The entry is assumed to be
+        formatted as specified by the docs [1]. The data is saved in `self`.  Note that the format
+        was extended in Version 3 and then further in Version 4.
+
+        Args:
+            index_file - memory mapped Git index file to read from
+            ver_num - version number for the this index file (available in index header)
+        """
         # The last time a file's metadata changed
         self.ctime_s = read_from_mmapped_file(index_file, "I")
         self.ctime_ns = read_from_mmapped_file(index_file, "I")
@@ -360,17 +434,17 @@ class IndexEntry(object):
         # (Version 3 or later) A 16-bit field, only applicable if the
         # "extended flag" above is 1, split into (high to low bits).
         if self.extended and (ver_num >= 3):
-            self.extra_flags = read_from_mmapped_file(index_file, "H")
+            extra_flags = read_from_mmapped_file(index_file, "H")
             # 1-bit reserved for future
-            self.reserved = bool(self.extra_flags & (0b10000000 << 8))
+            self.reserved = bool(extra_flags & (0b10000000 << 8))
             # 1-bit skip-worktree flag (used for sparse checkout)
-            self.skip_worktree = bool(self.extra_flags & (0b01000000 << 8))
+            self.skip_worktree = bool(extra_flags & (0b01000000 << 8))
             # 1-bit intent-to-add flag (used by "git add -N")
-            self.intent_to_add = bool(self.extra_flags & (0b00100000 << 8))
+            self.intent_to_add = bool(extra_flags & (0b00100000 << 8))
             # 13-bits unused, must be zero
-            unused = self.extra_flags & (0b00011111 << 8)
+            unused = extra_flags & (0b00011111 << 8)
             assert not unused, "Exp"
-            unused = self.extra_flags & (0b11111111)
+            unused = extra_flags & (0b11111111)
             assert not unused, "Exp"
 
             self_len_in_b += 2

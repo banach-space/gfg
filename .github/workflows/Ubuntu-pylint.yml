@@ -1,0 +1,19 @@
+name: Ubuntu-pylint
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v1
+      - name: Install Dependencies
+        run: |
+          sudo apt-get install python3-setuptools
+          python3 -m pip install --upgrade pip
+          pip3 install pylint
+      - name: Run Pylint
+        run: |
+          export PATH="/home/runner/.local/bin":$PATH
+          pylint index.py
+          PYTHONPATH="." pylint test/test_index.py
