@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+"""
+Inplements the user-facing interface for gfg
+"""
+
+import argparse
+from repository import GitRepository
+
+gfg_parser = argparse.ArgumentParser(
+    description="Git from Glasgow")
+gfg_subparsers = gfg_parser.add_subparsers(
+    title="Gfg commands", dest="command")
+
+gfg_init_parser = gfg_subparsers.add_parser(
+    "init", help="Create an empty Git repository or reinitialize an existing one")
+gfg_init_parser.add_argument("directory",
+                             metavar="directory",
+                             nargs="?",
+                             default=".",
+                             help="Where to create the repository.")
+
+def cmd_init(directory=None):
+    '''Implements gfg init'''
+    GitRepository(directory)
+
+
+if __name__ == "__main__":
+    args = gfg_parser.parse_args()
+    if args.command == "init":
+        cmd_init(args.directory)

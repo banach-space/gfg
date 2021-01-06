@@ -16,4 +16,6 @@ jobs:
         run: |
           export PATH="/home/runner/.local/bin":$PATH
           pylint index.py
+          pylint repository.py
+          pylint gfg
           PYTHONPATH="." pylint test/test_index.py

@@ -7,7 +7,15 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v1
-      - name: Run tests
+      - name: Install bats
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y bats
+      - name: Run unittests
         run: |
           cd test
           PYTHONPATH="../" python3 test_index.py
+      - name: Run verification tests against git
+        run: |
+          cd test
+          bats test_init.sh
