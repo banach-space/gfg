@@ -4,7 +4,10 @@ Inplements the user-facing interface for gfg
 """
 
 import argparse
+import sys
+from pathlib import Path
 from repository import GitRepository
+from index import IndexFile
 
 gfg_parser = argparse.ArgumentParser(
     description="Git from Glasgow")
@@ -19,12 +22,39 @@ gfg_init_parser.add_argument("directory",
                              default=".",
                              help="Where to create the repository.")
 
-def cmd_init(directory=None):
-    '''Implements gfg init'''
-    GitRepository(directory)
+gfg_add_parser = gfg_subparsers.add_parser(
+    "add", help="Files to add content from.")
+gfg_add_parser.add_argument("files",
+                             metavar="files",
+                             nargs='+',
+                             default=".",
+                             help="")
 
+def cmd_init(directory="."):
+    '''Implements gfg init'''
+    return GitRepository(directory)
+
+def cmd_add(files, git_repo):
+    '''Implements gfg add'''
+
+    # Check whether the input file exists
+    for file_to_add in files:
+        input_file = Path(file_to_add)
+        if not input_file.exists():
+            print(f"fatal: pathspec '{input_file}' did not match any files",
+                    file=sys.stderr)
+            sys.exit(1)
+
+        index = IndexFile(git_repo.get_git_file_path("index"))
+        index.add_file(file_to_add)
 
 if __name__ == "__main__":
     args = gfg_parser.parse_args()
+
     if args.command == "init":
         cmd_init(args.directory)
+    if args.command == "add":
+        repo = GitRepository.get_repo(".")
+        if repo is None:
+            sys.exit(1)
+        cmd_add(args.files, repo)

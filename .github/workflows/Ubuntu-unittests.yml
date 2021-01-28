@@ -11,11 +11,11 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y bats
-      - name: Run unittests
-        run: |
-          cd test
-          PYTHONPATH="../" python3 test_index.py
       - name: Run verification tests against git
         run: |
           cd test
-          bats test_init.sh
+          bats .
+      - name: Run unittests
+        run: |
+          cd test
+          PYTHONPATH="../" python3 -m unittest
