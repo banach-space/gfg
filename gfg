@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from repository import GitRepository
 from index import IndexFile
+from git_object import GitObject
 
 gfg_parser = argparse.ArgumentParser(
     description="Git from Glasgow")
@@ -47,6 +48,9 @@ def cmd_add(files, git_repo):
 
         index = IndexFile(git_repo.get_git_file_path("index"))
         index.add_file(file_to_add)
+
+        gobj = GitObject(file_to_add)
+        gobj.write()
 
 if __name__ == "__main__":
     args = gfg_parser.parse_args()

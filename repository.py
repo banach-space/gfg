@@ -53,21 +53,22 @@ class GitRepository():
         self.create_git_dir("refs", "tags")
         self.create_git_dir("refs", "heads")
 
-        # .git/description
+        # Create .git/description
         with open(self.get_git_file_path("description"), "w", encoding='utf-8') as desc_file:
             desc_file.write(
                     "Unnamed repository; edit this file 'description'"
                     "to name the repository.\n")
 
-        # .git/HEAD
+        # Create .git/HEAD
         with open(self.get_git_file_path("HEAD"), "w", encoding='utf-8') as head_file:
             head_file.write("ref: refs/heads/master\n")
 
-        # .git/config
+        # Create .git/config
         self.create_default_config()
         with open(self.get_git_file_path("config"), "w", encoding='utf-8') as config_file:
             self.git_config.write(config_file)
 
+        # Print this for consistency with Git
         print(f"Initialized empty Git repository in {os.path.abspath(self.git_dir)}")
 
     @staticmethod
