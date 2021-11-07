@@ -8,35 +8,45 @@ import sys
 from pathlib import Path
 from repository import GitRepository
 from index import IndexFile
-from git_object import GitObject
+from git_object import GitBlobObject
 
+#==============================================================================
+# Define the supported commands for the argument parser
+#==============================================================================
 gfg_parser = argparse.ArgumentParser(
     description="Git from Glasgow")
 gfg_subparsers = gfg_parser.add_subparsers(
     title="Gfg commands", dest="command")
 
-gfg_init_parser = gfg_subparsers.add_parser(
-    "init", help="Create an empty Git repository or reinitialize an existing one")
-gfg_init_parser.add_argument("directory",
-                             metavar="directory",
-                             nargs="?",
-                             default=".",
-                             help="Where to create the repository.")
+# `gfg init`
+gfg_init_parser = gfg_subparsers.add_parser("init",
+    help="Create an empty Git repository or reinitialize an existing one")
+gfg_init_parser.add_argument("directory", metavar="directory", nargs="?",
+    default=".", help="Where to create the repository.")
 
-gfg_add_parser = gfg_subparsers.add_parser(
-    "add", help="Files to add content from.")
-gfg_add_parser.add_argument("files",
-                             metavar="files",
-                             nargs='+',
-                             default=".",
-                             help="")
+# `gfg add`
+gfg_add_parser = gfg_subparsers.add_parser("add",
+    help="Files to add content from.")
+gfg_add_parser.add_argument("files", metavar="files", nargs='+', default=".",
+    help="")
 
+# `gfg cat-file`
+gfg_cat_file_parser = gfg_subparsers.add_parser("cat-file",
+    help="Provide content or type and size information for repository objects")
+gfg_cat_file_parser.add_argument("type", metavar="type",
+    choices=["blob", "commit", "tag", "tree"], help="Specify the type")
+gfg_cat_file_parser.add_argument("object", metavar="object_hash",
+    help="The name of the object to show")
+
+#==============================================================================
+# Implement the supported commands
+#==============================================================================
 def cmd_init(directory="."):
-    '''Implements gfg init'''
+    """Implements `gfg init`"""
     return GitRepository(directory)
 
 def cmd_add(files, git_repo):
-    '''Implements gfg add'''
+    """Implements `gfg add`"""
 
     # Check whether the input file exists
     for file_to_add in files:
@@ -49,16 +59,32 @@ def cmd_add(files, git_repo):
         index = IndexFile(git_repo.get_git_file_path("index"))
         index.add_file(file_to_add)
 
-        gobj = GitObject(file_to_add)
+        data = GitBlobObject.get_packed_blob(file_to_add)
+        gobj = GitBlobObject(repo, packed_data=data)
         gobj.write()
 
+def cmd_cat_file(object_hash, this_repo):
+    """Implements `gfg cat-file`"""
+    GitBlobObject(this_repo, object_hash = object_hash).read()
+
+#==============================================================================
+# Main entry point for the script
+#==============================================================================
 if __name__ == "__main__":
     args = gfg_parser.parse_args()
+    repo = GitRepository.get_repo(".")
 
+    # `gfg init`
     if args.command == "init":
         cmd_init(args.directory)
+        sys.exit(0)
+
+    # All other Git commands require the repository to be already set
+    if repo is None:
+        print("fatal: not a git repository (or any of the parent directories): .git")
+        sys.exit(1)
+
     if args.command == "add":
-        repo = GitRepository.get_repo(".")
-        if repo is None:
-            sys.exit(1)
         cmd_add(args.files, repo)
+    if args.command == "cat-file":
+        cmd_cat_file(args.object, repo)

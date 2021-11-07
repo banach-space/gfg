@@ -130,6 +130,17 @@ teardown()
 	[ "$output_after_gfg_l12" = "$output_after_git_l12" ]
 }
 
+@test "Test 'gfg add <file>' followed by 'gfg add <file>'" {
+  # Adding the same file twice is fine and should generate no output
+  touch empty_test_file
+  ../gfg/gfg add empty_test_file
+  ../gfg/gfg add empty_test_file
+
+  output=$(../gfg/gfg add empty_test_file)
+  expected=""
+	[ "$output" = "$expected" ]
+}
+
 @test "Test 'gfg add <file>' with 'ls .git/objects'" {
   # After `git add <file`, there should be a new object in `.git/objects`. Test
   # this for an empty file.

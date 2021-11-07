@@ -17,6 +17,32 @@ class GitRepository():
 
     git_subdir_name = ".git"
 
+    @staticmethod
+    def get_root_git_dir(git_subdir):
+        """ Find the root Git directory for the given repo subdirectory
+
+        Git can be invoked from any subdirectory within a Git project. This
+        method returns the root Git directory corresponding the the repository
+        containing `git_subdir`.
+
+        INPUT:
+            git_subdir - a subdirectory within a Git repository
+
+        RETURN:
+            Git repository root directory or None if not a Git repository
+        """
+        # Start by assuming that this is the root Git directory
+        repo_path = git_subdir
+
+        while not repo_path.joinpath(repo_path, GitRepository.git_subdir_name).exists() \
+                and repo_path != repo_path.parent:
+            repo_path = repo_path.parent
+
+        if repo_path.joinpath(repo_path, GitRepository.git_subdir_name).exists():
+            return repo_path
+
+        return None
+
     def __init__(self, directory=".", force_init=True):
         # The worktree directory for this repository
         self.worktree_dir = Path(os.path.normpath(directory))
@@ -25,15 +51,12 @@ class GitRepository():
         # Contents of the Git config file for this repository (i.e. .git/config)
         self.git_config = None
 
-        # Find the _top_ working directory
+        # Find the _top_ working/Git directory
         if not os.path.isdir(self.git_dir):
-            path = self.worktree_dir
-            while path != path.parent:
-                path = path.parent
-                if os.path.isdir(os.path.join(path, ".git")):
-                    self.worktree_dir = path.absolute()
-                    self.git_dir = os.path.join(self.worktree_dir, ".git")
-                    break
+            repo_path = GitRepository.get_root_git_dir(self.worktree_dir)
+            if repo_path:
+                self.worktree_dir = repo_path
+                self.git_dir = os.path.join(self.worktree_dir, ".git")
 
         # Check whether this an exiisting repo
         if os.path.isdir(self.git_dir):
@@ -72,28 +95,22 @@ class GitRepository():
         print(f"Initialized empty Git repository in {os.path.abspath(self.git_dir)}")
 
     @staticmethod
-    def get_repo(input_dir):
-        """Retrieve the Git repository for 'input_dir'
+    def get_repo(git_repo_subdir):
+        """Retrieve the Git repository for 'git_repo_subdir'
 
-        This method assumes that the input directory is within a Git
-        repository. It returns an instance of GitRepository that corresponds to
-        that repository. If the input directory is not a (sub)directory in a
-        Git repository this method returns None.
+        It returns an instance of GitRepository that corresponds to the input
+        Git repository subdirectory. If the input directory is not a
+        (sub)directory in a Git repository, return None.
 
-        Args:
+        INPUT:
             Directory for which to find a Git repository
-        Returns:
+        RETURN:
             GitRepository on success, None on failure
         """
-        input_dir = os.path.abspath(input_dir)
-        path = Path(input_dir).absolute()
+        path =  Path(os.path.abspath(git_repo_subdir))
 
-        while not path.joinpath(path, GitRepository.git_subdir_name).exists() \
-                and path != path.parent:
-            path = path.parent
-
-        if not path.joinpath(path, GitRepository.git_subdir_name).exists():
-            print("fatal: not a git repository (or any of the parent directories): .git")
+        path = GitRepository.get_root_git_dir(path)
+        if path is None:
             return None
 
         return GitRepository(path, False)
