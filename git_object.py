@@ -5,6 +5,7 @@
 [1] https://www.dulwich.io/docs/tutorial/file-format.html#the-blob
 '''
 
+import sys
 import hashlib
 import struct
 from pathlib import Path
@@ -30,7 +31,7 @@ class GitBlobObject():
     """
 
     @staticmethod
-    def get_packed_blob(file_to_read):
+    def get_packed_blob(file_to_read=None):
         """Get the file under `file_to_read` as a packed Git blob
 
         Generates a packed blob file for the input file. The blob looks like
@@ -43,8 +44,13 @@ class GitBlobObject():
             data - packed data for the generated blob file
 
         """
-        with open(file_to_read, "r", encoding = 'utf-8') as input_file:
-            data =  input_file.read()
+        if file_to_read is not None:
+            with open(file_to_read, "r", encoding = 'utf-8') as input_file:
+                data = input_file.read()
+        else:
+            data=""
+            for line in sys.stdin:
+                data += line
 
         header_str = f"blob {len(data)}"
         header_fmt = f"{len(header_str)}s"
@@ -97,7 +103,8 @@ class GitBlobObject():
 
         # Read object type
         space_after_obj_type = self.data.find(b' ')
-        object_type = self.data[0:space_after_obj_type]
+        # Not yet needed
+        # object_type = self.data[0:space_after_obj_type]
 
         # Read and validate object size
         null_char_after_obj_type = self.data.find(b'\x00', space_after_obj_type)
@@ -131,6 +138,6 @@ class GitBlobObject():
         file_path.write_bytes(zlib.compress(self.data))
 
     def verify(self):
-        """"""
+        """ Trivial sanity check """
         assert self.object_hash == hashlib.sha1(self.data).hexdigest(), \
             "GFG: Git hash and the actual data don't match"

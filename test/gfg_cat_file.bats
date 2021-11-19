@@ -16,11 +16,11 @@ setup()
   # Add two files that the tests will read
   touch test_file_1
   echo "1234" >> test_file_1
-  hash_file_1=$(echo '1234' | git hash-object -w --stdin)
+  hash_file_1=$(echo '1234' | git hash-object --stdin)
 
   touch test_file_2
   echo "4321" >> test_file_2
-  hash_file_2=$(echo '4321' | git hash-object -w --stdin)
+  hash_file_2=$(echo '4321' | git hash-object --stdin)
 
   ../gfg/gfg add test_file_1 test_file_2
 }
@@ -35,7 +35,10 @@ teardown()
 }
 
 @test "Test 'gfg cat-file blob <invalid-file>'" {
-
+  empty_file="invalid-file-name"
+  output=$(../gfg/gfg cat-file blob $empty_file)
+  expected="fatal: Not a valid object name $empty_file"
+	[ "$output" = "$expected" ]
 }
 
 @test "Test 'gfg cat-file blob <file>'" {

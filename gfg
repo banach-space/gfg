@@ -38,6 +38,17 @@ gfg_cat_file_parser.add_argument("type", metavar="type",
 gfg_cat_file_parser.add_argument("object", metavar="object_hash",
     help="The name of the object to show")
 
+# `gfg hash-object`
+gfg_hash_object_parser = gfg_subparsers.add_parser("hash-object",
+    help="Compute object ID and optionally creates a blob from a file")
+gfg_hash_object_parser.add_argument("-w", action="store_true",
+    help="Actually write the object into the object database.")
+gfg_hash_object_group = gfg_hash_object_parser.add_mutually_exclusive_group(required=True)
+gfg_hash_object_group.add_argument("--stdin", action="store_true",
+    help="Read the object from standard input instead of from a file")
+gfg_hash_object_group.add_argument("file", metavar="file", nargs='?',
+    help="")
+
 #==============================================================================
 # Implement the supported commands
 #==============================================================================
@@ -60,12 +71,30 @@ def cmd_add(files, git_repo):
         index.add_file(file_to_add)
 
         data = GitBlobObject.get_packed_blob(file_to_add)
-        gobj = GitBlobObject(repo, packed_data=data)
-        gobj.write()
+        blob = GitBlobObject(repo, packed_data=data)
+        blob.write()
 
 def cmd_cat_file(object_hash, this_repo):
     """Implements `gfg cat-file`"""
     GitBlobObject(this_repo, object_hash = object_hash).read()
+
+def cmd_hash_object(this_repo : GitRepository, write_file : bool, file_to_hash=None):
+    """Implements `gfg hash-object`
+
+    ARGS:
+        this_repo - the Git repo in which to save the file
+        write_file - corresponds to `-w` in `gfg hash-object -w <file>`
+        file_to_hash - name of the file to calculate the hash for (leave empty
+        when reading from stdin)
+    """
+    data = GitBlobObject.get_packed_blob(file_to_hash)
+    blob = GitBlobObject(this_repo, packed_data=data)
+
+    print(blob.object_hash)
+
+    if write_file:
+        blob.write()
+
 
 #==============================================================================
 # Main entry point for the script
@@ -88,3 +117,8 @@ if __name__ == "__main__":
         cmd_add(args.files, repo)
     if args.command == "cat-file":
         cmd_cat_file(args.object, repo)
+    if args.command == "hash-object":
+        if args.stdin is False:
+            cmd_hash_object(repo, args.w, args.file)
+        else:
+            cmd_hash_object(repo, args.w)
