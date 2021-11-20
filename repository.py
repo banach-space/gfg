@@ -6,10 +6,12 @@ Implements a class that represents a Git repository
     https://github.com/git/git/blob/master/Documentation/technical/repository-version.txt
 [2] git-config documentation:
     https://git-scm.com/docs/git-config
+[3] https://codewords.recurse.com/issues/three/unpacking-git-packfiles
 """
 
 import configparser
 import os
+import glob
 from pathlib import Path
 
 class GitRepository():
@@ -42,6 +44,35 @@ class GitRepository():
             return repo_path
 
         return None
+
+    def get_object_path(self, object_hash: str):
+        """ Get the directory and the full path of a Git object
+
+        This method generates Git repository path based on the object hash. It
+        does not check whether the corresponding object exists, i.e.
+            * if the Git object exists, the generated path corresponds to that
+            object
+            * if the Git object does not exist, the result should be discarded.
+        Callers of this method should verify whether the object exists.
+        Packfiles [3] are not supported!
+
+        INPUT:
+            object_hash - Git object hash to get the path for
+        RETURN:
+            dir, path - the directory and the full path of the object
+            corresponding to the input Git object
+        """
+        # Calculate the file path from the object hash
+        file_dir = Path(self.git_dir)  / "objects" / object_hash[0:2]
+        file_path = Path(file_dir) /  object_hash[2:]
+
+        # If the hash was provided by the user, it might have been a shortened
+        # version. If that's the case, self.file_path needs to recalculated.
+        list_of_matching_files = glob.glob(str(file_path) + "*")
+        if len(list_of_matching_files) == 1:
+            file_path = Path(list_of_matching_files[0])
+
+        return (file_dir, file_path)
 
     def __init__(self, directory=".", force_init=True):
         # The worktree directory for this repository

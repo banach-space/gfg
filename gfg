@@ -9,14 +9,15 @@ from pathlib import Path
 from repository import GitRepository
 from index import IndexFile
 from git_object import GitBlobObject
+from git_object import create_git_object
 
 #==============================================================================
 # Define the supported commands for the argument parser
 #==============================================================================
 gfg_parser = argparse.ArgumentParser(
-    description="Git from Glasgow")
+    description="Git From Glasgow")
 gfg_subparsers = gfg_parser.add_subparsers(
-    title="Gfg commands", dest="command")
+    title="gfg commands", dest="command")
 
 # `gfg init`
 gfg_init_parser = gfg_subparsers.add_parser("init",
@@ -33,7 +34,12 @@ gfg_add_parser.add_argument("files", metavar="files", nargs='+', default=".",
 # `gfg cat-file`
 gfg_cat_file_parser = gfg_subparsers.add_parser("cat-file",
     help="Provide content or type and size information for repository objects")
-gfg_cat_file_parser.add_argument("type", metavar="type",
+gfg_cat_file_group = gfg_cat_file_parser.add_mutually_exclusive_group(required=True)
+gfg_cat_file_group.add_argument("-p", action="store_true",
+    help="Pretty-print the contents of <object> based on its type.")
+gfg_cat_file_group.add_argument("-t", action="store_true",
+    help="Instead of the content, show the object type identified by <object>.")
+gfg_cat_file_group.add_argument("type", metavar="type", nargs='?',
     choices=["blob", "commit", "tag", "tree"], help="Specify the type")
 gfg_cat_file_parser.add_argument("object", metavar="object_hash",
     help="The name of the object to show")
@@ -74,9 +80,14 @@ def cmd_add(files, git_repo):
         blob = GitBlobObject(repo, packed_data=data)
         blob.write()
 
-def cmd_cat_file(object_hash, this_repo):
+def cmd_cat_file(object_hash, pretty_print: bool, type_only: bool, this_repo):
     """Implements `gfg cat-file`"""
-    GitBlobObject(this_repo, object_hash = object_hash).read()
+    gobj = create_git_object(this_repo, sha = object_hash)
+
+    if gobj is not None:
+        gobj.print(pretty_print, type_only)
+    else:
+        print(f"fatal: Not a valid object name {object_hash}")
 
 def cmd_hash_object(this_repo : GitRepository, write_file : bool, file_to_hash=None):
     """Implements `gfg hash-object`
@@ -94,7 +105,6 @@ def cmd_hash_object(this_repo : GitRepository, write_file : bool, file_to_hash=N
 
     if write_file:
         blob.write()
-
 
 #==============================================================================
 # Main entry point for the script
@@ -116,7 +126,7 @@ if __name__ == "__main__":
     if args.command == "add":
         cmd_add(args.files, repo)
     if args.command == "cat-file":
-        cmd_cat_file(args.object, repo)
+        cmd_cat_file(args.object, args.p, args.t, repo)
     if args.command == "hash-object":
         if args.stdin is False:
             cmd_hash_object(repo, args.w, args.file)

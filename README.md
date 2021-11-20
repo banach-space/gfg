@@ -8,5 +8,5 @@ Git From Glasgow
 
 * `gfg init`
 * `gfg add <files>`
-* `gfg cat-file blob <object-hash>`
+* `git cat-file (-t | -p | <type> ) <object>
 * `gfg hash-object [-w] [--stdin] <file>`

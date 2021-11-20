@@ -36,5 +36,14 @@ class TestGitRepositoryClass(unittest.TestCase):
         self.assertTrue(repo.git_config.has_section("core"))
         self.assertFalse(repo.git_config.has_section("Core"))
 
+    def test_get_object_path(self):
+        """ Verify that for invalid input object hash, the path returned by
+        GitRepository.get_object_path is also invalid.
+        """
+        repo = repository.GitRepository.get_repo(".")
+        _, file_path = repo.get_object_path(object_hash = "invalid_hash")
+        self.assertTrue(not file_path.exists(),
+                        "This object should not be present in this Git repository.")
+
 if __name__ == "__main__":
     unittest.main()

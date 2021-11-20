@@ -10,11 +10,123 @@ import hashlib
 import struct
 from pathlib import Path
 import zlib
-import glob
 from repository import GitRepository
 
+def create_git_object(repo : GitRepository, sha):
+    """ Create a GitObject
 
-class GitBlobObject():
+    Creates an instance of GitObject for the Git object correspondong to `sha`
+    and which is part of `repo`.
+
+    INPUT:
+        repo - Git repository to which the object belongs
+        sha - Git object sha
+    RETURN:
+        The generated object or None
+    """
+    _, file_path = repo.get_object_path(sha)
+    if not file_path.exists():
+        return None
+
+    # If the blob data was not provided, read it from the corresponding file
+    data = bytes()
+    with open(file_path, "rb") as input_file:
+        data =  zlib.decompress(input_file.read())
+
+    end_of_obj_type = data.find(b' ')
+    object_type = data[0:end_of_obj_type].decode("ascii")
+
+    if object_type == "tree":
+        return GitObject(repo, sha)
+
+    if object_type == "blob":
+        return GitBlobObject(repo, sha)
+
+    assert False, "GFG: Unsupported object type"
+
+class GitObject():
+    """ Represents a Git object"""
+    def __init__(self, repo: GitRepository, object_hash: str = None, packed_data: bytes = None):
+        self.repo = repo
+        # The hash of this object
+        self.object_hash = object_hash
+        # Blob data
+        self.data = packed_data
+        # The type of this object (tree, blob, commit)
+        self.object_type = None
+        # Does this object already exist as a Git object?
+        self.exists = True
+
+        if self.object_hash is None:
+            self.object_hash = hashlib.sha1(self.data).hexdigest()
+
+        # Calculate the file path from the object hash
+        self.file_dir, self.file_path = repo.get_object_path(self.object_hash)
+
+        # Now that we have the blob file path, check whether this object
+        # actually exists
+        # NOTE: Pack files are not supported!
+        if not self.file_path.exists():
+            self.exists = False
+            return
+
+        # If the blob data was not provided, read it from the corresponding file
+        if self.data is None:
+            with open(self.file_path, "rb") as input_file:
+                data =  input_file.read()
+                self.data = zlib.decompress(data)
+
+        end_of_obj_type = self.data.find(b' ')
+        self.object_type = self.data[0:end_of_obj_type].decode("ascii")
+
+    def print(self, pretty_print : bool, type_only : bool):
+        """Read this object and print to stdout"""
+        if not self.exists:
+            print(f"fatal: Not a valid object name {self.object_hash}")
+            return
+
+        # Read object type
+        space_after_obj_type = self.data.find(b' ')
+        object_type = self.data[0:space_after_obj_type].decode("ascii")
+        assert object_type == "tree", \
+            "GFG: This is not a tree"
+        # `gfg -t`
+        if type_only:
+            print("tree")
+            return
+
+        if not pretty_print:
+            print(self.data)
+            return
+
+        # Read and validate object size
+        null_char_after_obj_type = self.data.find(b'\x00', space_after_obj_type)
+        object_size = int(self.data[space_after_obj_type:null_char_after_obj_type].decode("ascii"))
+        if object_size != len(self.data)-null_char_after_obj_type-1:
+            raise Exception(f"Malformed object {self.object_hash}: bad length")
+
+        idx = null_char_after_obj_type + 1
+        bytes_read = 0
+        while bytes_read < object_size:
+            null_char_after_file_name = self.data.find(b'\x00', idx)
+            next_idx = self.data.find(b' ', idx)
+            file_mode = self.data[idx : next_idx].decode("ascii").rjust(6, "0")
+            file_name = self.data[next_idx: null_char_after_file_name].decode("ascii")
+
+            idx_new = null_char_after_file_name + 21
+            file_sha = self.data[null_char_after_file_name + 1 : idx_new]
+            git_obj = GitObject(self.repo, object_hash = file_sha.hex())
+            print(f"{file_mode} {git_obj.object_type} {file_sha.hex()}    {file_name} ")
+            bytes_read += (idx_new - idx)
+            idx = idx_new
+
+    def verify(self):
+        """ Trivial sanity check """
+        assert self.object_hash == hashlib.sha1(self.data).hexdigest(), \
+            "GFG: Git hash and the actual data don't match"
+
+
+class GitBlobObject(GitObject):
     """A Git blob object
 
     A Git blob stored as packed, uncompressed blob data and the corresponding
@@ -62,49 +174,20 @@ class GitBlobObject():
 
         return packed_data
 
-    def __init__(self, repo: GitRepository, object_hash: str = None, packed_data: bytes = None):
-        # Blob hash
-        self.object_hash = object_hash
-        # Blob data
-        self.data = packed_data
-        # Does this object exist?
-        self.exists = True
-
-        if self.object_hash is None:
-            self.object_hash = hashlib.sha1(self.data).hexdigest()
-
-        # Calculate the file path from the object hash
-        self.file_dir = Path(repo.git_dir)  / "objects" / self.object_hash[0:2]
-        self.file_path = Path(self.file_dir) /  self.object_hash[2:]
-
-        # If the hash was provided by the user, it might have been a shortened
-        # version. If that's the case, self.file_path needs to recalculated.
-        list_of_matching_files = glob.glob(str(self.file_path) + "*")
-        if len(list_of_matching_files) == 1:
-            self.file_path = Path(list_of_matching_files[0])
-
-        # Now that we have the blob file path, check whether this object
-        # actually exists
-        if not self.file_path.exists():
-            self.exists = False
-            return
-
-        # If the blob data was no provided, read it from the corresponding file
-        if self.data is None:
-            with open(self.file_path, "rb") as input_file:
-                data =  input_file.read()
-                self.data = zlib.decompress(data)
-
-    def read(self):
-        """Read this blob object and print to stdout"""
+    def print(self, pretty_print : bool, type_only : bool):
+        """Read this blob object and print it to stdout"""
         if not self.exists:
-            print(f"fatal: Not a valid object name {self.object_hash}")
+            print(f"fatal: Not a valid object name {self.object_hash}", file=sys.stderr)
             return
 
         # Read object type
         space_after_obj_type = self.data.find(b' ')
-        # Not yet needed
-        # object_type = self.data[0:space_after_obj_type]
+        object_type = self.data[0:space_after_obj_type].decode("ascii")
+        assert object_type == "blob", \
+            "GFG: This is not a object"
+        if type_only:
+            print("blob")
+            return
 
         # Read and validate object size
         null_char_after_obj_type = self.data.find(b'\x00', space_after_obj_type)
@@ -112,6 +195,7 @@ class GitBlobObject():
         if object_size != len(self.data)-null_char_after_obj_type-1:
             raise Exception(f"Malformed object {self.object_hash}: bad length")
 
+        # Print the contents
         print(self.data[null_char_after_obj_type+1:].decode("ascii"), end="")
 
     def write(self):
@@ -136,8 +220,3 @@ class GitBlobObject():
 
         # Save the object file
         file_path.write_bytes(zlib.compress(self.data))
-
-    def verify(self):
-        """ Trivial sanity check """
-        assert self.object_hash == hashlib.sha1(self.data).hexdigest(), \
-            "GFG: Git hash and the actual data don't match"
