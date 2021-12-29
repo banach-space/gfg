@@ -81,6 +81,8 @@ class GitObject():
 
     def print(self, pretty_print : bool, type_only : bool):
         """Read this object and print to stdout"""
+        # pylint: disable=R0914
+        # (don't warn about "Too many local variables")
         if not self.exists:
             print(f"fatal: Not a valid object name {self.object_hash}")
             return
@@ -160,7 +162,12 @@ class GitBlobObject(GitObject):
             with open(file_to_read, "r", encoding = 'utf-8') as input_file:
                 data = input_file.read()
         else:
-            data=""
+            # pylint: disable=R1713
+            # Pylint suggests using `data.join(sys.stdin)` here instead of the
+            # `for` loop, but that doesn't work. AFAIK, `sys.stdin` is an
+            # iterable so it should actually work. For now I'm just disabling
+            # the Pylint warning for this block.
+            data=str()
             for line in sys.stdin:
                 data += line
 
