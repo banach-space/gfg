@@ -31,6 +31,7 @@ setup()
 
   git commit -m "Test commit"
   tree_hash=$(git log --pretty=format:'%T')
+  commit_hash=$(git rev-parse HEAD)
 }
 
 teardown()
@@ -67,13 +68,17 @@ END
   [ "$output" = "$expected_output" ]
 }
 
-@test "Test 'gfg cat-file -t <blob_hash|tree_hash>'" {
+@test "Test 'gfg cat-file -t <blob_hash|tree_hash|commit_hash>'" {
   output=$(../gfg/gfg cat-file -t $hash_file_1)
   expected="blob"
   [ "$output" = "$expected" ]
 
   output=$(../gfg/gfg cat-file -t $tree_hash)
   expected="tree"
+  [ "$output" = "$expected" ]
+
+  output=$(../gfg/gfg cat-file -t $commit_hash)
+  expected="commit"
   [ "$output" = "$expected" ]
 }
 

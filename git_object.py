@@ -37,15 +37,18 @@ def create_git_object(repo : GitRepository, sha):
     object_type = data[0:end_of_obj_type].decode("ascii")
 
     if object_type == "tree":
-        return GitObject(repo, sha)
+        return GitTreeObject(repo, sha)
 
     if object_type == "blob":
         return GitBlobObject(repo, sha)
 
+    if object_type == "commit":
+        return GitCommitObject(repo, sha)
+
     assert False, "GFG: Unsupported object type"
 
 class GitObject():
-    """ Represents a Git object"""
+    """ Represents an abstract Git object"""
     def __init__(self, repo: GitRepository, object_hash: str = None, packed_data: bytes = None):
         self.repo = repo
         # The hash of this object
@@ -78,6 +81,40 @@ class GitObject():
 
         end_of_obj_type = self.data.find(b' ')
         self.object_type = self.data[0:end_of_obj_type].decode("ascii")
+
+    def print(self, pretty_print : bool, type_only : bool):
+        """Read this object and print to stdout"""
+        # pylint: disable=unused-argument
+        assert self.object_type not in ["blob", "tree", "commit"], \
+                "GFG: Wrong `print` version"
+        raise Exception("Unimplemented!")
+
+    def verify(self):
+        """ Trivial sanity check """
+        assert self.object_hash == hashlib.sha1(self.data).hexdigest(), \
+            "GFG: Git hash and the actual data don't match"
+
+class GitCommitObject(GitObject):
+    """ Represents a Git commit object"""
+
+    def print(self, pretty_print : bool, type_only : bool):
+        """Read this object and print to stdout"""
+        if not self.exists:
+            print(f"fatal: Not a valid object name {self.object_hash}")
+            return
+
+        # Read object type
+        space_after_obj_type = self.data.find(b' ')
+        object_type = self.data[0:space_after_obj_type].decode("ascii")
+        assert object_type == "commit", \
+            "GFG: This is not a commit"
+        # `gfg -t`
+        if type_only:
+            print("commit")
+            return
+
+class GitTreeObject(GitObject):
+    """ Represents a Git tree object"""
 
     def print(self, pretty_print : bool, type_only : bool):
         """Read this object and print to stdout"""
@@ -121,11 +158,6 @@ class GitObject():
             print(f"{file_mode} {git_obj.object_type} {file_sha.hex()}    {file_name} ")
             bytes_read += (idx_new - idx)
             idx = idx_new
-
-    def verify(self):
-        """ Trivial sanity check """
-        assert self.object_hash == hashlib.sha1(self.data).hexdigest(), \
-            "GFG: Git hash and the actual data don't match"
 
 
 class GitBlobObject(GitObject):
