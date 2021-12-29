@@ -15,7 +15,8 @@ jobs:
       - name: Run Pylint
         run: |
           export PATH="/home/runner/.local/bin":$PATH
-          pylint index.py
-          pylint repository.py
+          pylint git_index.py
+          pylint git_repository.py
+          pylint git_object.py
           pylint gfg
           PYTHONPATH="." pylint test/test_index.py
