@@ -11,7 +11,7 @@ from shutil import copyfile
 import os
 import unittest
 import hashlib
-import index
+import git_index
 
 
 class TestIndexClass(unittest.TestCase):
@@ -26,7 +26,7 @@ class TestIndexClass(unittest.TestCase):
         # Copy the index file of GFG and use that as input for tests
         index_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../.git/index")
         copyfile(index_path, self.file_name_in)
-        self.index_file = index.IndexFile(self.file_name_in)
+        self.index_file = git_index.IndexFile(self.file_name_in)
 
         # Parse the index file and validate it
         self.index_file.validate()
@@ -57,8 +57,8 @@ class TestIndexClass(unittest.TestCase):
         entries = self.index_file.get_entries_by_filename("random-file.py")
         self.assertTrue(len(entries) == 0, "Random entries present in index")
 
-        entries = self.index_file.get_entries_by_filename("index.py")
-        self.assertTrue(len(entries) == 1, "index.py is missing from index")
+        entries = self.index_file.get_entries_by_filename("git_index.py")
+        self.assertTrue(len(entries) == 1, "git_index.py is missing from index")
 
     def test_small_change_sanity(self):
         """Modify index file - sanity check
@@ -67,7 +67,7 @@ class TestIndexClass(unittest.TestCase):
         file. Next, verifies that the original and the new files are different.
         """
         # Change path name in one of the entries in the index file (doesn't matter _which_)
-        entries = self.index_file.get_entries_by_filename("index.py")
+        entries = self.index_file.get_entries_by_filename("git_index.py")
         entries[0].path_name = "PATHNAME_MODIFIED_IN_TEST.py"
         self.index_file.validate()
 
@@ -140,10 +140,10 @@ class TestIndexClass(unittest.TestCase):
         """
         # Change path name in one of the entries in the index file (it doesn't
         # matter _which_). Note that this invalidates the current index checksum.
-        entries = self.index_file.get_entries_by_filename("index.py")
+        entries = self.index_file.get_entries_by_filename("git_index.py")
         entries[0].path_name = "PATHNAME_MODIFIED_IN_TEST.py"
 
-        entries = self.index_file.get_entries_by_filename("repository.py")
+        entries = self.index_file.get_entries_by_filename("git_repository.py")
         entries[0].path_name = "PATHNAME2_MODIFIED_IN_TEST.py"
 
         # Calculate new SHA-1

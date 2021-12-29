@@ -10,7 +10,7 @@ import hashlib
 import struct
 from pathlib import Path
 import zlib
-from repository import GitRepository
+from git_repository import GitRepository
 
 def create_git_object(repo : GitRepository, sha):
     """ Create a GitObject

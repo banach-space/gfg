@@ -6,8 +6,8 @@ Inplements the user-facing interface for gfg
 import argparse
 import sys
 from pathlib import Path
-from repository import GitRepository
-from index import IndexFile
+from git_repository import GitRepository
+from git_index import IndexFile
 from git_object import GitBlobObject
 from git_object import create_git_object
 
