@@ -109,6 +109,12 @@ class GitCommitObject(GitObject):
             print(f"fatal: Not a valid object name {self.object_hash}")
             return
 
+        self.parent_sha = None
+        self.tree_sha = None
+        self.committer = None
+        self.author = None
+        self.commit_msg = None
+
         # Read the object type
         space_after_obj_type = self.data.find(b' ')
         self.object_type = self.data[0:space_after_obj_type].decode("ascii")
@@ -130,7 +136,10 @@ class GitCommitObject(GitObject):
             field_id = str(self.data[idx:space_after_field_id].decode("ascii"))
 
             if field_id == "parent":
-                raise Exception("GFG: TODO")
+                self.parent_sha = str(
+                        self.data[space_after_field_id + 1:\
+                                space_after_field_id + 1 + GitObject.sha_len].
+                        decode("ascii"))
 
             if field_id == "author":
                 author = GitCommitObject.parse_author_or_committer(
@@ -211,13 +220,15 @@ class GitCommitObject(GitObject):
             return
 
         print(f"tree {self.tree_sha}")
+        if self.parent_sha is not None:
+            print(f"parent {self.parent_sha}")
         print(f"author {self.author.name} <{self.author.email}> "\
                 f"{self.author.timestamp} {self.author.timezone}")
         print(f"committer {self.committer.name} "\
                 f"<{self.committer.email}> {self.committer.timestamp} "\
                 f"{self.committer.timezone}")
-        # The commit message will contain `\n` (that's how it's read here), so
-        # we make sure not to add an additional EOL character.
+        # The commit message will contain `\n` (that's how it's read by GFG), so
+        # we need to make sure not to add an additional EOL character here.
         print(self.commit_msg, end='')
 
 
