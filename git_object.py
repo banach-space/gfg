@@ -3,9 +3,11 @@
 
 
 [1] https://www.dulwich.io/docs/tutorial/file-format.html#the-blob
+[2] https://www.dulwich.io/docs/tutorial/file-format.html#the-commit
 '''
 
 import sys
+from collections import namedtuple
 import hashlib
 import struct
 from pathlib import Path
@@ -49,6 +51,8 @@ def create_git_object(repo : GitRepository, sha):
 
 class GitObject():
     """ Represents an abstract Git object"""
+    sha_len = 40
+
     def __init__(self, repo: GitRepository, object_hash: str = None, packed_data: bytes = None):
         self.repo = repo
         # The hash of this object
@@ -96,9 +100,98 @@ class GitObject():
 
 class GitCommitObject(GitObject):
     """ Represents a Git commit object"""
+    Author = namedtuple('Author', 'name email timestamp timezone')
+    Committer = namedtuple('Committer', 'name email timestamp timezone')
+
+    def __init__(self, repo: GitRepository, object_hash: str = None, packed_data: bytes = None):
+        super().__init__(repo, object_hash, packed_data)
+        if not self.exists:
+            print(f"fatal: Not a valid object name {self.object_hash}")
+            return
+
+        # Read the object type
+        space_after_obj_type = self.data.find(b' ')
+        self.object_type = self.data[0:space_after_obj_type].decode("ascii")
+        assert self.object_type == "commit", "GFG: This is not a commit"
+
+        # Read and validate the object size
+        null_char_after_obj_len = self.data.find(b'\x00', space_after_obj_type)
+        self.object_size = int(
+                self.data[space_after_obj_type:null_char_after_obj_len].decode("ascii")
+                )
+        if self.object_size != len(self.data)-null_char_after_obj_len-1:
+            raise Exception(f"Malformed object {self.object_hash}: bad length")
+
+        # Read: parent, author, committer, tree
+        idx = null_char_after_obj_len + 1
+        while True:
+            space_after_field_id = self.data.find(b' ', idx)
+
+            field_id = str(self.data[idx:space_after_field_id].decode("ascii"))
+
+            if field_id == "parent":
+                raise Exception("GFG: TODO")
+
+            if field_id == "author":
+                author = GitCommitObject.parse_author_or_committer(
+                                self.data,
+                                space_after_field_id + 1)
+                self.author = GitCommitObject.Author(*author)
+            if field_id == "committer":
+                committer = GitCommitObject.parse_author_or_committer(
+                                self.data,
+                                space_after_field_id + 1)
+                self.committer = GitCommitObject.Committer(*committer)
+            if field_id == "tree":
+                self.tree_sha = str(
+                        self.data[space_after_field_id + 1:\
+                                space_after_field_id + 1 + GitObject.sha_len].
+                        decode("ascii"))
+
+            idx = self.data.find(b'\n', idx)
+            idx += 1
+            # Is the next line empty? If yes, then what follows is the commit
+            # message
+            if self.data[idx:idx+1] == b'\n':
+                break
+
+        # Read the commit message
+        self.commit_msg = str(self.data[idx:].decode("ascii"))
+
+
+    @staticmethod
+    def parse_author_or_committer(data, begin_idx):
+        """Parses the author or committer entry in a commit object [2]. Both
+        entries are similar and look like this:
+            (...)
+            committer|author <author name> <author e-mail> <timestamp> <timezone>
+            ^
+            |
+            |
+        begin_idx
+
+        INPUT:
+            data - raw data to read (from a Git commit object)
+            begin_idx - specifies where to begin reading within `data` (as
+                        highlighted above)
+        RETURN:
+            A tuple that contains name, email, timestamp and timezone
+        """
+        email_start_idx = data.find(b'<', begin_idx) + 1
+        email_end_idx = data.find(b'>', email_start_idx)
+        timestamp_start_idx = data.find(b' ', email_end_idx) + 1
+        timezone_start_idx = data.find(b' ', timestamp_start_idx) + 1
+        timezone_end_idx = data.find(b'\n', timezone_start_idx)
+
+        name = str(data[begin_idx:email_start_idx - 2].decode("ascii"))
+        email = str(data[email_start_idx:email_end_idx].decode("ascii"))
+        timestamp = str(data[timestamp_start_idx:timezone_start_idx-1].decode("ascii"))
+        timezone = str(data[timezone_start_idx:timezone_end_idx].decode("ascii"))
+
+        return name, email, timestamp, timezone
 
     def print(self, pretty_print : bool, type_only : bool):
-        """Read this object and print to stdout"""
+        """Print this object to stdout"""
         if not self.exists:
             print(f"fatal: Not a valid object name {self.object_hash}")
             return
@@ -112,6 +205,21 @@ class GitCommitObject(GitObject):
         if type_only:
             print("commit")
             return
+
+        if not pretty_print:
+            print(self.data)
+            return
+
+        print(f"tree {self.tree_sha}")
+        print(f"author {self.author.name} <{self.author.email}> "\
+                f"{self.author.timestamp} {self.author.timezone}")
+        print(f"committer {self.committer.name} "\
+                f"<{self.committer.email}> {self.committer.timestamp} "\
+                f"{self.committer.timezone}")
+        # The commit message will contain `\n` (that's how it's read here), so
+        # we make sure not to add an additional EOL character.
+        print(self.commit_msg, end='')
+
 
 class GitTreeObject(GitObject):
     """ Represents a Git tree object"""
@@ -139,12 +247,12 @@ class GitTreeObject(GitObject):
             return
 
         # Read and validate object size
-        null_char_after_obj_type = self.data.find(b'\x00', space_after_obj_type)
-        object_size = int(self.data[space_after_obj_type:null_char_after_obj_type].decode("ascii"))
-        if object_size != len(self.data)-null_char_after_obj_type-1:
+        null_char_after_obj_len = self.data.find(b'\x00', space_after_obj_type)
+        object_size = int(self.data[space_after_obj_type:null_char_after_obj_len].decode("ascii"))
+        if object_size != len(self.data)-null_char_after_obj_len-1:
             raise Exception(f"Malformed object {self.object_hash}: bad length")
 
-        idx = null_char_after_obj_type + 1
+        idx = null_char_after_obj_len + 1
         bytes_read = 0
         while bytes_read < object_size:
             null_char_after_file_name = self.data.find(b'\x00', idx)
@@ -229,13 +337,13 @@ class GitBlobObject(GitObject):
             return
 
         # Read and validate object size
-        null_char_after_obj_type = self.data.find(b'\x00', space_after_obj_type)
-        object_size = int(self.data[space_after_obj_type:null_char_after_obj_type].decode("ascii"))
-        if object_size != len(self.data)-null_char_after_obj_type-1:
+        null_char_after_obj_len = self.data.find(b'\x00', space_after_obj_type)
+        object_size = int(self.data[space_after_obj_type:null_char_after_obj_len].decode("ascii"))
+        if object_size != len(self.data)-null_char_after_obj_len-1:
             raise Exception(f"Malformed object {self.object_hash}: bad length")
 
         # Print the contents
-        print(self.data[null_char_after_obj_type+1:].decode("ascii"), end="")
+        print(self.data[null_char_after_obj_len+1:].decode("ascii"), end="")
 
     def write(self):
         """Save this blob file

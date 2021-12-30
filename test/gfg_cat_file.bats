@@ -68,6 +68,19 @@ END
   [ "$output" = "$expected_output" ]
 }
 
+@test "Test 'gfg cat-file -p <commit-hash>' vs 'git cat-file -p <commit-hash>" {
+  output=$(../gfg/gfg cat-file -p $commit_hash)
+  expected_output=$(git cat-file -p $commit_hash)
+  echo $output
+  echo $expected_output
+
+  # Trim trailing white-spaces
+  output=`echo $output | xargs`
+  expected_output=`echo $expected_output | xargs`
+
+  [ "$output" = "$expected_output" ]
+}
+
 @test "Test 'gfg cat-file -t <blob_hash|tree_hash|commit_hash>'" {
   output=$(../gfg/gfg cat-file -t $hash_file_1)
   expected="blob"
@@ -83,20 +96,38 @@ END
 }
 
 @test "Test 'gfg cat-file blob <invalid-file>'" {
-  empty_file="invalid-file-name"
+  invalid_file="invalid-file"
   set +e
-  output=$(../gfg/gfg cat-file blob $empty_file 2>&1)
-  expected=$(git cat-file blob $empty_file 2>&1)
+  output=$(../gfg/gfg cat-file blob $invalid_file 2>&1)
+  expected=$(git cat-file blob $invalid_file 2>&1)
   set -e
   [ "$output" = "$expected" ]
 }
 
-@test "Test 'gfg cat-file -p <invalid-tree-hash>' vs 'git cat-file -p <invalid-tree-hash>" {
-  invalid_tree_hash="123456"
+@test "Test 'gfg cat-file tree <invalid-tree>'" {
+  invalid_tree="invalid-tree"
+  set +e
+  output=$(../gfg/gfg cat-file tree $invalid_tree 2>&1)
+  expected=$(git cat-file tree $invalid_tree 2>&1)
+  set -e
+  [ "$output" = "$expected" ]
+}
+
+@test "Test 'gfg cat-file commit <invalid-commit>'" {
+  invalid_commit="invalid-commit"
+  set +e
+  output=$(../gfg/gfg cat-file commit $invalid_commit 2>&1)
+  expected=$(git cat-file commit $invalid_commit 2>&1)
+  set -e
+  [ "$output" = "$expected" ]
+}
+
+@test "Test 'gfg cat-file -p <invalid-object-hash>' vs 'git cat-file -p <invalid-object-hash>" {
+  invalid_object_hash="123456"
 
   set +e
-  output=$(../gfg/gfg cat-file -p $invalid_tree_hash 2>&1)
-  expected_output=$(git cat-file -p $invalid_tree_hash 2>&1)
+  output=$(../gfg/gfg cat-file -p $invalid_object_hash 2>&1)
+  expected_output=$(git cat-file -p $invalid_object_hash 2>&1)
   set -e
 
   # Trim trailing white-spaces
