@@ -11,6 +11,7 @@ from collections import namedtuple
 import hashlib
 import struct
 from pathlib import Path
+import datetime
 import zlib
 from git_repository import GitRepository
 
@@ -166,6 +167,7 @@ class GitCommitObject(GitObject):
 
         # Read the commit message
         self.commit_msg = str(self.data[idx:].decode("ascii"))
+        self.commit_msg.rstrip()
 
 
     @staticmethod
@@ -199,17 +201,12 @@ class GitCommitObject(GitObject):
 
         return name, email, timestamp, timezone
 
-    def print(self, pretty_print : bool, type_only : bool):
+    def print(self, pretty_print: bool, type_only: bool):
         """Print this object to stdout"""
         if not self.exists:
             print(f"fatal: Not a valid object name {self.object_hash}")
             return
 
-        # Read object type
-        space_after_obj_type = self.data.find(b' ')
-        object_type = self.data[0:space_after_obj_type].decode("ascii")
-        assert object_type == "commit", \
-            "GFG: This is not a commit"
         # `gfg -t`
         if type_only:
             print("commit")
@@ -230,6 +227,43 @@ class GitCommitObject(GitObject):
         # The commit message will contain `\n` (that's how it's read by GFG), so
         # we need to make sure not to add an additional EOL character here.
         print(self.commit_msg, end='')
+
+        return
+
+    def print_log(self, disable_ascii_escape: bool = False):
+        """Print this commit in a format identical to `git log`. Colors are
+        generated using ASCII escape characters.
+
+        INPUT:
+            disable_ascii_escape - if `True`, ASCII escape characters are
+                                   disabled
+        """
+        if not self.exists:
+            print(f"fatal: Not a valid object name {self.object_hash}")
+            return
+
+        # 1. Print the commit hash.
+        yellow_ansii_code = ''
+        end_ansii_code = ''
+        if not disable_ascii_escape:
+            # NOTE: This formatting will only work in consoles that understand ANSI
+            # escape sequences.
+            yellow_ansii_code = '\033[33m'
+            end_ansii_code = '\033[0m'
+        print(f"{yellow_ansii_code}commit {self.object_hash}{end_ansii_code}")
+        # 2. Print commit author.
+        print(f"Author: {self.author.name} <{self.author.email}> ")
+        # 3. Print commit date.
+        commit_date = datetime.datetime.fromtimestamp(int(self.author.timestamp))
+        print(f"Date:   {commit_date.ctime()} {self.author.timezone}")
+        # 4. Print commit message. Add indentation (4 spaces) to match the
+        # outpput from `git`. When splitting lines, skip the last item which
+        # will only contain `\n` (we don't want to indent that).
+        commit_msg_lines = self.commit_msg.split('\n')[:-1]
+        commit_msg_lines = [ (4 * ' ') + line.lstrip() for line in
+                commit_msg_lines]
+        commit_msg = "\n".join(commit_msg_lines)
+        print(f"{commit_msg}")
 
 
 class GitTreeObject(GitObject):

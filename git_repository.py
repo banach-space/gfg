@@ -63,8 +63,8 @@ class GitRepository():
             corresponding to the input Git object
         """
         # Calculate the file path from the object hash
-        file_dir = Path(self.git_dir)  / "objects" / object_hash[0:2]
-        file_path = Path(file_dir) /  object_hash[2:]
+        file_dir = Path(self.git_dir) / "objects" / object_hash[0:2]
+        file_path = Path(file_dir) / object_hash[2:]
 
         # If the hash was provided by the user, it might have been a shortened
         # version. If that's the case, self.file_path needs to recalculated.

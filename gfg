@@ -5,10 +5,12 @@ Inplements the user-facing interface for gfg
 
 import argparse
 import sys
+import os
 from pathlib import Path
 from git_repository import GitRepository
 from git_index import IndexFile
 from git_object import GitBlobObject
+from git_object import GitCommitObject
 from git_object import create_git_object
 
 #==============================================================================
@@ -54,6 +56,14 @@ gfg_hash_object_group.add_argument("--stdin", action="store_true",
     help="Read the object from standard input instead of from a file")
 gfg_hash_object_group.add_argument("file", metavar="file", nargs='?',
     help="")
+
+# `gfg log`
+gfg_log_parser = gfg_subparsers.add_parser("log",
+    help="Show commit logs")
+# Hidden option, not available in `git`. It will disable ASCI escape characters
+# in `gfg log` (needed for comparing the output with `git log`).
+gfg_log_parser.add_argument("--disable-ascii-escape", action="store_true",
+    help=argparse.SUPPRESS)
 
 #==============================================================================
 # Implement the supported commands
@@ -106,6 +116,45 @@ def cmd_hash_object(this_repo : GitRepository, write_file : bool, file_to_hash=N
     if write_file:
         blob.write()
 
+def cmd_log(this_repo, disable_ascii_escape: bool = False):
+    """Implements `gfg log`"""
+
+    # The revision inside `.git/HEAD`
+    head_rev = None
+    #
+    current_commit = None
+
+    # 1. Get the contents of `.git/HEAD`
+    head_file_path = os.path.join(this_repo.git_dir, "HEAD")
+    with open(head_file_path, "r", encoding = 'utf-8') as head_file:
+        file_contents = head_file.read()
+        head_rev = file_contents.split(':')[1].lstrip().rstrip()
+
+    # 2. Get the contents of the revision file pointed to in `.git/HEAD`
+    # Note: technically speaking, it could be a _revision_ or a _tag_ (perhaps
+    # something else that I've missed)
+    rev_file_path = os.path.join(this_repo.git_dir, head_rev)
+    with open(rev_file_path, "r", encoding = 'utf-8') as rev_file:
+        current_commit = rev_file.read().rstrip()
+
+    # 3. Print the logs starting from the most recent commit
+    while current_commit is not None:
+        commit_obj = GitCommitObject(this_repo, current_commit)
+
+        if not commit_obj.exists:
+            print("GFG: The next parent object might be a packfile. "
+                    "Packfiles are not supported.", file=sys.stderr)
+            return
+
+        commit_obj.print_log(disable_ascii_escape)
+        # If there's another commit to display, insert an empty line for
+        # consistency with Git.
+        if commit_obj.parent_sha is not None:
+            print()
+
+        current_commit = commit_obj.parent_sha
+
+
 #==============================================================================
 # Main entry point for the script
 #==============================================================================
@@ -132,3 +181,5 @@ if __name__ == "__main__":
             cmd_hash_object(repo, args.w, args.file)
         else:
             cmd_hash_object(repo, args.w)
+    if args.command == "log":
+        cmd_log(repo, args.disable_ascii_escape)
