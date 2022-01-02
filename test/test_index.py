@@ -113,26 +113,34 @@ class TestIndexClass(unittest.TestCase):
         # Delete the dummy test file
         os.remove(test_file)
 
-    def test_update_checksum_sanity(self):
-        """Checksum - sanity check
-
-        Verify that the index checksum is correct
+    def test_checksum_sanity(self):
+        """Re-calculate the index checksum and verify that it is correct. The
+        index is neither modified nor updated.
         """
         # Calculate SHA-1
         contents = self.index_file.print_to_bytes()
         new_sha1 = hashlib.sha1(contents).hexdigest()
 
+        # Verify that the checksum is correct
         self.assertTrue(self.index_file.checksum == new_sha1,
                 "Checksum is invalid")
 
-        # Try updating the checksum in the index file (as we have not modified
-        # the index, this shouldn't really change the checksum)
+    def test_update_checksum_basic(self):
+        """Re-calculate the index checksum and verify that it is correct. The
+        index is not modified, but the checksum gets updated (with the index
+        kept intact, this should be a nop).
+        """
+        old_sha1 = self.index_file.checksum
+
+        # Update the checksum in the index file. As the index has not been
+        # modified, this should not affect the checksum.
         self.index_file.update_checksum()
-        self.assertTrue(self.index_file.checksum == new_sha1,
+        self.assertTrue(self.index_file.checksum == old_sha1,
                 "Checksum is invalid")
 
     def test_update_checksum(self):
-        """Modify the checksum
+        """Re-calculate the index checksum and verify that it is correct. The
+        index is modified and the checksum is updated.
 
         Updating the index invalidates the checksum. Verify this and that
         IndexFile.update_checksum() correctly updates it to reflect the updated
@@ -157,6 +165,23 @@ class TestIndexClass(unittest.TestCase):
         self.index_file.update_checksum()
         self.assertTrue(self.index_file.checksum == new_sha1,
                 "Checksum has been succesfully updated")
+
+    def test_tree_cache_extension(self):
+        """ The invalidate() member method in IndexTreeCacheExt will invalidate
+        an entry in the tree cache, but it shouldn't invalidate the underlying
+        object (i.e. the object should still represent a valid Git extension
+        with one field marked as invalidated). Verify that.
+        """
+        self.index_file.extension_tree_cache.validate()
+        self.index_file.validate()
+
+        self.index_file.extension_tree_cache.invalidate("NOT_A_VALID_PATH")
+        self.index_file.extension_tree_cache.validate()
+        self.index_file.validate()
+
+        self.index_file.extension_tree_cache.invalidate(".")
+        self.index_file.extension_tree_cache.validate()
+        self.index_file.validate()
 
 
 if __name__ == "__main__":

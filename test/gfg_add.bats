@@ -12,6 +12,10 @@ setup()
 
   mkdir ${TEST_REPO_DIR} && cd ${TEST_REPO_DIR} || exit 1
   ../gfg/gfg init
+
+  # Dummy set-up to aid testing (without this `git commit` won't work)
+  git config --global user.email "you@example.com"
+  git config --global user.name "Your Name"
 }
 
 teardown()
@@ -186,4 +190,33 @@ teardown()
   # test_file_2
   git_show=$(git show 79ed404b9b839e31ab01724a986c7d67218c1471)
 	[ "$git_show" = "4321" ]
+}
+
+@test "Test 'gfg add <file>' followed by 'git commit'" {
+  # This test verifies that the Git cache tree is invalidated after `git add`.
+  # The subsequent `git commit` is then meant to validate it. If the cache tree
+  # is not invalidated, then `git` will think that the file still has not been
+  # commited. More specifically:
+  # ```
+  # git add file
+  # git commit -m "Some commit message"
+  # git status
+  # ```
+  # should show no files in the staging area at the end. If the the cache tree
+  # is not invalidated as it should, `git status` will still show files in the
+  # staging area, even after `git commit`.
+  touch test_file
+  echo "1234" >> test_file_1
+  ../gfg/gfg add test_file
+
+  # Before the commit, `test_file` should be listed as the only file to be
+  # commited
+  before_commit=$(git status --untracked-files=no --porcelain)
+  before_commit_expected="A  test_file"
+	[ "$before_commit" = "$before_commit_expected" ]
+
+  # After the commit, there are no files to be commited
+  git commit -m "Some commit message"
+  after_commit=$(git status --untracked-files=no --porcelain)
+	[ "$after_commit" = "" ]
 }
