@@ -26,8 +26,8 @@ setup()
   ../gfg/gfg add test_file_1 test_dir/test_file_2
 
   # Dummy set-up to aid testing (without this `git commit` won't work)
-  git config --global user.email "you@example.com"
-  git config --global user.name "Your Name"
+  git config --local user.email "gfg@gfg.test"
+  git config --local user.name "GFG Test"
 
   git commit -m "Test commit"
   tree_hash=$(git log --pretty=format:'%T')

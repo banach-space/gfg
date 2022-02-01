@@ -14,8 +14,8 @@ setup()
   ../gfg/gfg init
 
   # Dummy set-up to aid testing (without this `git commit` won't work)
-  git config --global user.email "you@example.com"
-  git config --global user.name "Your Name"
+  git config --local user.email "gfg@gfg.test"
+  git config --local user.name "GFG Test"
 }
 
 teardown()

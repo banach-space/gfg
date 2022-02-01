@@ -76,6 +76,10 @@ class GitRepository():
 
         LIMITATION: Packfiles [3] are not supported.
 
+        Note that the object hash could be provided in its full form (e.g.
+        2c250da0045dc138bf12e2f0217bd30d375b44d7), or a shortened form (e.g.
+        2c250da0045). The shortened form is simply expanded to its full form.
+
         INPUT:
             object_hash - Git object hash to get the path for
         RETURN:

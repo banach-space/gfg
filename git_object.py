@@ -4,9 +4,12 @@
 
 [1] https://www.dulwich.io/docs/tutorial/file-format.html#the-blob
 [2] https://www.dulwich.io/docs/tutorial/file-format.html#the-commit
+[3] https://www.dulwich.io/docs/tutorial/file-format.html#the-tree
 '''
 
 import sys
+import binascii
+import os
 from collections import namedtuple
 import hashlib
 import struct
@@ -14,6 +17,7 @@ from pathlib import Path
 import datetime
 import zlib
 from git_repository import GitRepository
+from git_index import GFGError
 
 def create_git_object(repo : GitRepository, sha):
     """ Create a GitObject
@@ -66,6 +70,10 @@ class GitObject():
         # Does this object already exist as a Git object?
         self.exists = True
 
+        if self.object_hash is None and self.data is None:
+            self.exists = False
+            return
+
         if self.object_hash is None:
             self.object_hash = hashlib.sha1(self.data).hexdigest()
 
@@ -88,8 +96,8 @@ class GitObject():
         end_of_obj_type = self.data.find(b' ')
         self.object_type = self.data[0:end_of_obj_type].decode("ascii")
 
-    def print(self, pretty_print : bool, type_only : bool):
-        """Read this object and print to stdout"""
+    def print_to_stdout(self, pretty_print : bool, type_only : bool):
+        """ Read this object and print to stdout"""
         # pylint: disable=unused-argument
         assert self.object_type not in ["blob", "tree", "commit"], \
                 "GFG: Wrong `print` version"
@@ -202,8 +210,8 @@ class GitCommitObject(GitObject):
 
         return name, email, timestamp, timezone
 
-    def print(self, pretty_print: bool, type_only: bool):
-        """Print this object to stdout"""
+    def print_to_stdout(self, pretty_print: bool, type_only: bool):
+        """ Print this object to stdout"""
         if not self.exists:
             print(f"fatal: Not a valid object name {self.object_hash}")
             return
@@ -270,19 +278,115 @@ class GitCommitObject(GitObject):
 class GitTreeObject(GitObject):
     """ Represents a Git tree object"""
 
-    def print(self, pretty_print : bool, type_only : bool):
-        """Read this object and print to stdout"""
-        # pylint: disable=R0914
-        # (don't warn about "Too many local variables")
-        if not self.exists:
-            print(f"fatal: Not a valid object name {self.object_hash}")
-            return
-
-        # Read object type
+    def __parse(self):
+        # Read the object type
         space_after_obj_type = self.data.find(b' ')
         object_type = self.data[0:space_after_obj_type].decode("ascii")
-        assert object_type == "tree", \
-            "GFG: This is not a tree"
+        assert object_type == "tree", "GFG: This is not a tree"
+
+        # Read and validate object size
+        null_char_after_obj_len = self.data.find(b'\x00', space_after_obj_type)
+        self.object_size = int(
+                self.data[space_after_obj_type:null_char_after_obj_len]\
+                        .decode("ascii"))
+        if self.object_size != len(self.data)-null_char_after_obj_len-1:
+            raise Exception(f"Malformed object {self.object_hash}: bad length")
+
+        # Read all the obhe
+        idx = null_char_after_obj_len + 1
+        bytes_read = 0
+        while bytes_read < self.object_size:
+            # Read file mode
+            space_after_file_mode_idx = self.data.find(b' ', idx)
+            file_mode = self.data[idx : space_after_file_mode_idx].decode("ascii").rjust(6, "0")
+
+            # Read file name
+            null_char_after_file_name = self.data.find(b'\x00', idx)
+            file_name = self.data[
+                    space_after_file_mode_idx:null_char_after_file_name
+                    ].decode("ascii")
+
+            # Read object hash
+            idx_new = null_char_after_file_name + 21
+            obj_sha = self.data[null_char_after_file_name + 1 : idx_new]
+
+            # Get object type. Note that this is not stored in the tree object
+            # and needs to be retrieved by reading the correspondig Git object.
+            git_obj = GitObject(self.repo, object_hash = obj_sha.hex())
+            self.tree_entries.append((file_mode, git_obj.object_type, obj_sha.hex(), file_name))
+
+            bytes_read += (idx_new - idx)
+            idx = idx_new
+
+    def save_to_file(self):
+        """ Save this tree object to an actual file """
+
+        dir_name = self.object_hash[0:2]
+        file_name = self.object_hash[2:]
+
+        # Create the object sub-dir
+        full_dir = Path("./.git/objects/" + dir_name)
+        full_dir.mkdir(exist_ok=True)
+
+        # Create the object file
+        file_path = Path("./.git/objects/" + dir_name + "/" + file_name)
+        if os.path.exists(file_path):
+            raise GFGError(f"GFG! This tree already exists: {self.object_hash}!")
+
+        # Save the object file
+        file_path.write_bytes(zlib.compress(self.print_to_bytes()))
+
+    def print_to_bytes(self):
+        """ Print this object to a bytes object as per the spec [3] """
+        tree_str = "tree"
+        data: bytes = tree_str.encode()
+        data += b' '
+        contents = bytes()
+        contents += b'\x00'
+
+        for entry in self.tree_entries:
+            # File mode. Git seems to use the value in Octoal saved using ASCII
+            # chars.
+            contents += str(oct(entry[0])[2:]).encode()
+            contents += b' '
+            # File name
+            contents += os.path.basename(entry[3]).encode()
+            # Null character
+            contents += b'\x00'
+            # Object SHA
+            contents += binascii.unhexlify(entry[2].encode())
+        data += str(len(contents) - 1).encode()
+        data += contents
+
+        return data
+
+    def __init__(self, repo: GitRepository, object_hash: str = None, blobs: list
+            = None, trees: list = None):
+        super().__init__(repo, object_hash)
+
+        self.object_size = 0
+        self.tree_entries = []
+
+        # If this tree already exists, just read it
+        if self.exists:
+            self.__parse()
+            return
+
+        if blobs is None and trees is None:
+            raise GFGError("GFG: Missing data to create this object")
+
+        for tree in trees:
+            self.tree_entries.append((0o040000, "tree", tree.sha,
+                tree.path_component))
+
+        for blob in blobs:
+            self.tree_entries.append((blob.mode, "blob", blob.sha1,
+                blob.path_name))
+
+        self.object_hash = hashlib.sha1(self.print_to_bytes()).hexdigest()
+
+    def print_to_stdout(self, pretty_print : bool, type_only : bool):
+        """Print this object to stdout"""
         # `gfg -t`
         if type_only:
             print("tree")
@@ -292,26 +396,10 @@ class GitTreeObject(GitObject):
             print(self.data)
             return
 
-        # Read and validate object size
-        null_char_after_obj_len = self.data.find(b'\x00', space_after_obj_type)
-        object_size = int(self.data[space_after_obj_type:null_char_after_obj_len].decode("ascii"))
-        if object_size != len(self.data)-null_char_after_obj_len-1:
-            raise Exception(f"Malformed object {self.object_hash}: bad length")
-
-        idx = null_char_after_obj_len + 1
-        bytes_read = 0
-        while bytes_read < object_size:
-            null_char_after_file_name = self.data.find(b'\x00', idx)
-            next_idx = self.data.find(b' ', idx)
-            file_mode = self.data[idx : next_idx].decode("ascii").rjust(6, "0")
-            file_name = self.data[next_idx: null_char_after_file_name].decode("ascii")
-
-            idx_new = null_char_after_file_name + 21
-            file_sha = self.data[null_char_after_file_name + 1 : idx_new]
-            git_obj = GitObject(self.repo, object_hash = file_sha.hex())
-            print(f"{file_mode} {git_obj.object_type} {file_sha.hex()}    {file_name} ")
-            bytes_read += (idx_new - idx)
-            idx = idx_new
+        for entry in self.tree_entries:
+            # NOTE: It would be nice to give some meaningful names to these
+            # fields
+            print(f"{entry[0]} {entry[1]} {entry[2]}    {entry[3]} ")
 
 
 class GitBlobObject(GitObject):
@@ -367,8 +455,8 @@ class GitBlobObject(GitObject):
 
         return packed_data
 
-    def print(self, pretty_print : bool, type_only : bool):
-        """Read this blob object and print it to stdout"""
+    def print_to_stdout(self, pretty_print : bool, type_only : bool):
+        """ Read this blob object and print it to stdout"""
         if not self.exists:
             print(f"fatal: Not a valid object name {self.object_hash}", file=sys.stderr)
             return

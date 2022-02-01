@@ -20,12 +20,29 @@ git init --quiet
 touch gfg-test-file-1
 echo "1234" >> gfg-test-file-1
 
-# Create the 2nd file
+# Create the 2nd file and 1st sub-dir
 mkdir test-dir-1
 touch test-dir-1/gfg-test-file-2
 echo "4321" >> test-dir-1/gfg-test-file-2
 
-git add  gfg-test-file-1 test-dir-1/gfg-test-file-2
+# Create the 3rd file and 2nd sub-dir
+mkdir -p test-dir-2/test-dir-3/
+touch test-dir-2/test-dir-3/gfg-test-file-3
+touch test-dir-2/test-dir-3/gfg-test-file-4
+touch test-dir-2/test-dir-3/gfg-test-file-5
+echo "4321" >> test-dir-2/test-dir-3/gfg-test-file-3
+echo "4321" >> test-dir-2/test-dir-3/gfg-test-file-4
+echo "4321" >> test-dir-2/test-dir-3/gfg-test-file-5
+
+git add  gfg-test-file-1 test-dir-1/gfg-test-file-2 test-dir-2/test-dir-3/*
+
+# Dummy set-up to aid testing (without this `git commit` won't work in remote
+# CI)
+git config --local user.email "gfg@gfg.test"
+git config --local user.name "GFG Test"
+
 git commit --quiet -m "First commit in test repo"
+
+mkdir -p test-dir-2/test-dir-3/test-dir-4/
 
 echo "$test_repo_dir"

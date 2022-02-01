@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 Inplements the user-facing interface for gfg
+
+[1] https://git-scm.com/docs/index-format#_cache_tree
 """
 
 import argparse
@@ -9,7 +11,11 @@ import os
 from pathlib import Path
 from git_repository import GitRepository
 from git_index import IndexFile
+from git_index import IndexTreeEntry
+from gfg_common import GIT_INVALID_ENTRY_COUNT
+from gfg_common import GFGError
 from git_object import GitBlobObject
+from git_object import GitTreeObject
 from git_object import GitCommitObject
 from git_object import create_git_object
 
@@ -65,6 +71,10 @@ gfg_log_parser = gfg_subparsers.add_parser("log",
 gfg_log_parser.add_argument("--disable-ascii-escape", action="store_true",
     help=argparse.SUPPRESS)
 
+# `gfg write-tree`
+gfg_write_tree_parser = gfg_subparsers.add_parser("write-tree",
+    help="Show commit logs")
+
 #==============================================================================
 # Implement the supported commands
 #==============================================================================
@@ -90,12 +100,95 @@ def cmd_add(files, git_repo):
         blob = GitBlobObject(repo, packed_data=data)
         blob.write()
 
+def create_new_tree(dir_path, git_repo, index):
+    """ Creates a new Git tree object
+
+    INPUT:
+        dir_path - Directory for which to create this tree object
+    RETURN:
+        New index tree cache entry corresponding to the newly created Git tree
+        object
+    """
+
+    # Get blobs in this tree
+    blobs_in_tree = index.get_blobs(dir_path)
+
+    # Get sub-dirs in this tree
+    subtrees = index.get_subtrees(dir_path)
+
+    new_tree_object = GitTreeObject(git_repo, blobs=blobs_in_tree, trees=subtrees)
+    # Need to print to generate sha
+    try:
+        new_tree_object.save_to_file()
+    except GFGError:
+        pass
+
+    num_blobs_in_tree = len(blobs_in_tree)
+    for tree in subtrees:
+        num_blobs_in_tree += tree.entry_count
+
+    return IndexTreeEntry(dir_path, num_blobs_in_tree,
+            len(subtrees), new_tree_object.object_hash)
+
+def cmd_write_tree(git_repo):
+    """Implements `gfg write-tree`
+
+    INPUT:
+        git_repo - Git repository in which to generate this tree object
+
+    Once this is run, all new Git tree objects should be present in
+    .git/objects and the Git Index should be up to date.
+
+    """
+    index = IndexFile(git_repo.get_git_file_path("index"))
+
+    # 1. Identify dirs/trees to create and/or to update
+    new_dirs, dirs_to_update = index.get_trees_to_add_or_update()
+
+    # 2. Create tree objects for the newly added dirs in Index. We need to stick to the order
+    # outlined in [1] ("The entries are written out in the top-down, depth-first order."). To this
+    # end, sort the directories so that we start with the most nested dir first. For example, for:
+    #   * ['test_dir/test_dir_nested', 'test_dir']
+    # we need the directories to be ordered like this:
+    #   * ['test_dir', 'test_dir/test_dir_nested'].
+    # This way we make sure that we insert the parent directory first, and then child dirs.
+    new_dirs = list(new_dirs)
+    new_dirs.sort()
+    dirs_to_update = list(dirs_to_update)
+    new_dirs_entries = []
+    for dir_path in new_dirs:
+        new_tree = IndexTreeEntry(dir_path, GIT_INVALID_ENTRY_COUNT, 0, None)
+        new_dirs_entries.append(new_tree)
+        index.extension_tree_cache.add_entry(new_tree)
+        dirs_to_update.append(dir_path)
+
+    index.update_checksum()
+    index.validate(read_file=False)
+
+    # 2. Update all index tree cache entries that are out-of-date (this included the newly created
+    # entries in Step 2.). New files that correspond to the new tree objects are created in
+    # .git/objects.
+    dirs_to_update.sort()
+    # Reverse the order of dirs to update. We need this so that for every tree entry we update it's
+    # subtrees first.
+    dirs_to_update.reverse()
+    for dir_path in dirs_to_update:
+        new_tree = create_new_tree(dir_path, git_repo, index)
+        index.extension_tree_cache.update_tree_entry(new_tree)
+
+    index.update_checksum()
+    index.print_to_file()
+    index.validate()
+
+    # For compability with `git`, print the new (top) Tree hash
+    print(index.extension_tree_cache.get_entries_by_dirname("./")[0].sha)
+
 def cmd_cat_file(object_hash, pretty_print: bool, type_only: bool, this_repo):
     """Implements `gfg cat-file`"""
     gobj = create_git_object(this_repo, sha = object_hash)
 
     if gobj is not None:
-        gobj.print(pretty_print, type_only)
+        gobj.print_to_stdout(pretty_print, type_only)
     else:
         print(f"fatal: Not a valid object name {object_hash}")
 
@@ -167,7 +260,8 @@ if __name__ == "__main__":
         cmd_init(args.directory)
         sys.exit(0)
 
-    # All other Git commands require the repository to be already set
+    # All other Git commands require the repository to be already initialised
+    # and available
     if repo is None:
         print("fatal: not a git repository (or any of the parent directories): .git")
         sys.exit(1)
@@ -183,3 +277,5 @@ if __name__ == "__main__":
             cmd_hash_object(repo, args.w)
     if args.command == "log":
         cmd_log(repo, args.disable_ascii_escape)
+    if args.command == "write-tree":
+        cmd_write_tree(repo)

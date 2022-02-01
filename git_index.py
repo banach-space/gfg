@@ -1,4 +1,6 @@
-# vindex.py
+# pylint: disable=C0302
+# Too many lines in module
+# git_index.py
 '''Library for representing, reading and editing Git index files.
 
 This library implements classes represent Git index files. The provided methods
@@ -30,14 +32,10 @@ import os
 import sys
 import hashlib
 from pathlib import Path
-
 from pprint import pprint
-
-GIT_CHECKSUM_SIZE_BYTES = 20
-# See https://git-scm.com/docs/index-format#_cache_tree
-GIT_INVALID_ENTRY_COUNT = -1
-# Number of ASCII characters in GIT_INVALID_ENTRY_COUNT
-GIT_NUM_OF_ASCII_CHARS_INVALID_EC = 2
+# pylint: disable=W0401
+# Wildcard import gfg_common
+from gfg_common import *
 
 
 def read_from_mmapped_file(mmaped_file, format_char):
@@ -93,7 +91,7 @@ class IndexFile():
 
     def __init__(self, filename):
         self.index_file_name = filename
-        self.header = IndexHeader()
+        self.header = IndexHeader(None)
         self.extension_tree_cache = IndexTreeCacheExt()
 
         # A list of index entries. Every item is a tuple: (idx, entry)
@@ -121,17 +119,31 @@ class IndexFile():
         contents = self.print_to_bytes()
         self.checksum = hashlib.sha1(contents).hexdigest()
 
-    def validate(self):
-        """Validate the contents stored by this IndexFile
+    def validate(self, read_file: bool = True):
+        """ Validate the contents of this IndexFile
+
+        Note that any Index file (i.e. a physical file) must alwasy be valid.
+        However, this object though be in an invalid state (we might be in the
+        process of updating it). Hence why `read_file` below.
+
+        INPUT:
+            read_file - read Index from file before validating?
+        RETURN:
+            None
         """
         assert len(self.entries) == self.header.num_entries, \
             "GFG: The index header and actual " \
             "contents are inconsistent."
 
-        with open(self.index_file_name, "rb") as index_file:
-            index_content = index_file.read()[:-20]
-            assert self.checksum == hashlib.sha1(index_content).hexdigest(), \
+        if read_file:
+            with open(self.index_file_name, "rb") as index_file:
+                index_content = index_file.read()[:-20]
+                assert self.checksum == hashlib.sha1(index_content).hexdigest(), \
                     "GFG: Index file checksum is invalid"
+        else:
+            contents = self.print_to_bytes()
+            assert self.checksum == hashlib.sha1(contents).hexdigest(), \
+                "GFG: Index file checksum is invalid"
 
         self.extension_tree_cache.validate()
 
@@ -149,8 +161,7 @@ class IndexFile():
                 index_file_obj.fileno(), 0, prot=mmap.PROT_READ)
 
             # Parse header
-            self.header = IndexHeader()
-            self.header.read(index_file)
+            self.header = IndexHeader(index_file)
 
             # Parse index entries
             for entry_idx in range(self.header.num_entries):
@@ -221,48 +232,156 @@ class IndexFile():
             pprint(entry[1].__dict__)
 
         print("[extensions]")
-        pprint(self.extension_tree_cache.__dict__)
+        self.extension_tree_cache.print_to_stdout()
         print("[checksum]")
         pprint(self.checksum)
 
     def get_entries_by_filename(self, file_to_retrieve):
         """Retrieve index entries corresponding to the specified file
 
-        Retrieves the list of index entries that correspond to file_to_retrieve.  Note that there
-        might be more than one such entry, e.g. when there are multiple files with similar names,
-        but in different subdirectories. Currently, in such cases an exception is raised.
-
-        TODO: Add support for repositories in which similarly named files are stored in multiple
+        Retrieves the list of index entries that correspond to
+        file_to_retrieve.  Note that there might be more than one such entry,
+        e.g. when there are multiple files with similar names, but in different
         subdirectories.
 
-        Args:
+        INPUT:
             file_to_retrieve - name of the file for which the index entries are requested
-        Returns:
+        RETURN:
             A list of matching index entries
         """
-        _, file_name = os.path.split(file_to_retrieve)
-        matching_entries = [entry for _, entry in self.entries
-                            if os.path.split(entry.path_name)[1] == file_name]
-
-        if matching_entries != [] and not len(matching_entries) == 1:
-            raise Exception(
-                "GFG: More than one path matches the query. Resolution not yet support")
+        file_name = file_to_retrieve
+        matching_entries = [entry for _, entry in self.entries if\
+                (entry.path_name == file_name or
+                    os.path.basename(entry.path_name) == file_name)]
 
         return matching_entries
 
-    def add_file(self, path):
+    def add_file(self, file_path):
         """Add a new file to this index file"""
-        self.entries.append((len(self.entries) + 1, (IndexEntry(path))))
+        self.entries.append((len(self.entries) + 1, (IndexEntry(file_path))))
         self.header.num_entries += 1
-        self.extension_tree_cache.invalidate(os.path.dirname(path))
+        self.extension_tree_cache.invalidate(os.path.dirname(file_path))
 
         self.update_checksum()
         self.print_to_file()
         self.validate()
 
+    def get_subtrees(self, dir_path):
+        """Get cache tree index entries that are sub-dirs for dir_path
+
+        INPUT:
+            dir_path - Directory for which to find sub-trees
+        RETURN:
+            the list of cache tree entries corresponding to sub-trees of
+            dir_path
+        """
+        child_entries = []
+        root = Path("./") / dir_path
+
+        for entry in self.extension_tree_cache.entries:
+            potential_child = Path("./") / entry.path_component
+            # For potential_child = ".":
+            #   * potential_child.parent is ".", but
+            #   * potential_child.parents is [].
+            # Hence, in order to handle "./",  we need to check both.
+            if root in potential_child.parents and root == potential_child.parent:
+                child_entries.append(entry)
+
+        return child_entries
+
+    def get_trees_to_add_or_update(self):
+        """ Go over the index file and identify directories to add or to update
+
+        """
+        dirs_to_add = set()
+        dirs_to_update = set()
+
+        # Go over the entries in Git Index. For every entry, identify whether the
+        # corresponding dir/tree needs creating or updating.
+        for _, item in self.entries:
+            dir_path_tmp = os.path.dirname(item.path_name)
+            if dir_path_tmp == '':
+                dir_path_tmp = "./"
+
+            # In Git, every sub-dir has its own Cache Tree entry and own Git tree
+            # object. This means that we need to split dir_path_tmp as follows:
+            #   * before: "test_dir/test_dir_2/test_dir_3"
+            #   * after: ["test_dir", "test_dir/test_dir_2", "test_dir/test_dir_3"]
+            # First, extra every sub-dir component, i.e. create:
+            #   * ["test_dir", "test_dir_2", "test_dir_3"]
+            dir_paths = os.path.normpath(dir_path_tmp).split(os.sep)
+
+            # Next, generate the actual sub-dirs to check.
+            paths_to_check = []
+            for idx, _ in enumerate(dir_paths):
+                if idx != 0:
+                    paths_to_check.append(os.path.join('.', *dir_paths[0:idx+1]))
+                elif len(dir_paths) != 1:
+                    paths_to_check.append(os.path.join('.', dir_paths[0]))
+                else:
+                    # Special case - dir_path_tmp is "./"
+                    paths_to_check.append('./')
+
+            # Finally, go over all paths from paths_to_check and decide whether
+            # they requiere adding or updating.
+            for path_to_check in paths_to_check:
+                if not self.is_dir_in_index(path_to_check):
+                    # This tree is yet to be added.
+                    dirs_to_add.add(path_to_check)
+                elif self.extension_tree_cache.get_entries_by_dirname(path_to_check)[0].entry_count\
+                        == GIT_INVALID_ENTRY_COUNT:
+                    # A tree corresponding to this directory is already present in
+                    # the Index, but it is out-of-date and needs updating.
+                    dirs_to_update.add(path_to_check)
+
+        # Extra case for "./". If there are _any_ dirs to update, then the root
+        # dir for this repo also needs updating.
+        if dir_paths:
+            dirs_to_update.add("./")
+
+        self.extension_tree_cache.validate()
+        self.update_checksum()
+        self.validate(read_file = False)
+
+        return dirs_to_add, dirs_to_update
+
+
+    def is_dir_in_index(self, dir_path):
+        """Is this directory already present in the cache tree extension?
+
+        INPUT:
+            dir_path - directory to chck
+        RETURN:
+            True if this directory is already present in the cache tree
+            extension, False otherwise
+        """
+
+        for item in self.extension_tree_cache.entries:
+            if item.path_component == dir_path:
+                return True
+
+        return False
+
+    def get_blobs(self, dir_path):
+        """ Get all blobs in dir_path """
+        # GFG stores paths as "./<some-dir>", e.g. "./". But for Python, "./"
+        # is ".".
+        if dir_path == './':
+            dir_path = '.'
+
+        blobs = []
+        for _, entry in self.entries:
+            file_path = os.path.join('.', entry.path_name)
+            if os.path.dirname(file_path) == dir_path:
+                blobs.append(entry)
+
+        return blobs
+
+
+# pylint: disable=R0903
+# Too few public methods (0/2) (too-few-public-methods)
 class IndexHeader():
-    """Represents a Git index header
-    """
+    """ Represents a Git index header """
     # 4-byte signature, b"DIRC"
     signature = None
     # 4-byte version number
@@ -270,24 +389,20 @@ class IndexHeader():
     # 32-bit number of index entries, i.e. 4-byte
     num_entries = None
 
-    def __init__(self):
+    def __init__(self, index_file):
         self.signature = "DIRC"
         self.ver_num = 2
         self.num_entries = 0
 
-    def write(self, index_file):
-        """Save this header to a file
-
-        Saves this header to a memory mapped Git index file. The header is assumed to
-        be formatted as specified by the docs [1|4].
-
-        Args:
-            index_file - memory mapped Git index file to write to
-        """
-        index_file.write(self.print_to_bytes())
+        if index_file is not None:
+            self.__parse(index_file)
 
     def print_to_bytes(self):
-        """Pack this header a bytes object
+        """ Pack this header as a bytes object
+        INPUT:
+            None
+        RETURN:
+            This index header as a bytes object
         """
         contents = self.signature.encode()
 
@@ -297,13 +412,13 @@ class IndexHeader():
 
         return contents
 
-    def read(self, index_file):
-        """Read Git index header from a file
+    def __parse(self, index_file):
+        """ Parse Git index header from
 
         Reads header from the input memory mapped Git index file. The header is assumed to
         be formatted as specified by the docs [1|4]. The data is saved in `self`.
 
-        Args:
+        INPUT:
             index_file - memory mapped Git index file to read from
         """
         self.signature = index_file.read(4).decode("ascii")
@@ -316,8 +431,7 @@ class IndexHeader():
 
 
 class IndexEntry():
-    """Represents a Git index entry
-    """
+    """ Represents a Git index entry """
     # pylint: disable=too-many-instance-attributes
 
     # The last time a file's metadata changed
@@ -394,7 +508,7 @@ class IndexEntry():
             read_file = f"blob {self.size}\0{read_file}"
             self.sha1 = hashlib.sha1(read_file.encode()).hexdigest()
 
-        # A 16-bit 'flags' field split into:
+        # A 16-bit flags field split into:
         self.assume_valid = 0
         self.extended = 0
         self.stage = (0, 0)
@@ -403,21 +517,13 @@ class IndexEntry():
 
         self.path_name = file_path
 
-    def write(self, index_file, ver_num):
-        """Save this entry to a file
-
-        Saves this index entry to a memory mapped Git index file. The entry is assumed to be
-        formattted as specified by the docs [1|4]. Note that the format was extended in Version
-        3 and then further in Version 4.
-
-        Args:
-            index_file - memory mapped Git index file to write to
-            ver_num - version number for the this index file (available in index header)
-        """
-        index_file.write(self.print_to_bytes(ver_num))
-
     def print_to_bytes(self, ver_num):
         """Pack this index entry as a bytes object
+
+        INPUT:
+            ver_num
+        RETURN:
+            This index entry as a bytes object
         """
         data_format = "! " + "I"
 
@@ -591,9 +697,25 @@ class IndexEntry():
             null_bytes = index_file.read(pad_len_b)
             assert set(null_bytes) == {0}, f"padding contained non-NUL: {null_bytes}"
 
+# pylint: disable=R0903
+# Too few public methods (0/2) (too-few-public-methods)
+class IndexTreeEntry():
+    """ Represents one entry in cache tree
+
+        Lack of member methods suggests that I should've used named tuples
+        here, but I need something that's mutable.
+    """
+    def __init__(self, path_component, entry_count, num_subtrees, sha):
+        self.path_component = path_component
+        self.entry_count = entry_count
+        self.num_subtrees = num_subtrees
+        self.sha = sha
+
 class IndexTreeCacheExt():
-    """Represents a Git tree cache extension. This is very well documented in
-    [5] """
+    """Represents a Git tree cache extension.
+
+    This Git data structure is very well documented in [5]
+    """
     num_bytes_before_data = 8
 
     def __init__(self, tree_cache_extension=None):
@@ -605,8 +727,86 @@ class IndexTreeCacheExt():
         self.signature = ""
         self.entries = []
 
+    def add_entry(self, new_tree: IndexTreeEntry):
+        """ Insert a new tree to the cache tree extension
+
+        The insertion point matches [5] `The entries are written out in the
+        top-down, depth-first order.` The entries come in the order of
+        insertion (i.e. oldest first). This makes finding the insertion index a
+        bit tricky. Essentially, for a cache index like this:
+            ['./', './test_dir']
+        any new entries in the top directory, e.g. `./test_dir_2`, need to come
+        after `./test_dir`. I wasn't able to find any documentation for this.
+        This is purely based on reverse-engineering (if the order is wrong,
+        then e.g. the subsequent `git commit` gets a bit confused in weird
+        ways).
+
+        This method expects that the parent directory/tree for `new_tree` is
+        already inside this Index Tree Cache extension.
+
+        INPUT:
+            new_tree - the index tree cache extension entry to add
+        RETURN:
+        """
+        if new_tree.path_component == "./":
+            if len(self.entries) != 0:
+                raise GFGError("GFG: Trying to add tree entry for ''")
+            self.entries.insert(0, new_tree)
+            return
+
+        # Index of the parent directory in the tree cache index
+        parent_idx = 0
+        # Number of subtries from the parent tree entry to skip before
+        # inserting new_tree
+        num_sub_trees_to_skip = 0
+        parent_num_sub_trees = 0
+
+        # Find the parent directory for new_tree and its index in the tree
+        # cache.
+        found_parent = False
+        new_dir = Path(new_tree.path_component)
+        for idx, entry in enumerate(self.entries):
+            if Path(entry.path_component) == new_dir.parent:
+                parent_idx = idx
+                parent_num_sub_trees = int(entry.num_subtrees)
+                found_parent = True
+                break
+
+
+        if not found_parent:
+            raise GFGError(f"GFG: Couldn't find a parent tree for \
+                    {new_tree.path_component}")
+
+        # This is just the initial value for the number of sub-tree
+        # entires to skip. We also need go over all sub-trees of the
+        # parent tree and extract the corresponding number of sub-trees (that
+        # we also need to skip).
+        num_sub_trees_to_skip = parent_num_sub_trees
+
+        # Calculate the insertion index. For this, we need to iterate over all
+        # sub-trees of the parent tree (and their subtrees).
+        insertion_idx = parent_idx + 1
+        while num_sub_trees_to_skip != 0:
+            # Add all the sub-trees of this sub-tree - we need to skip them
+            # too.
+            num_sub_trees_to_skip += int(self.entries[insertion_idx].num_subtrees)
+            # We are visiting one sub-tree, so the number of sub-trees to skip
+            # drops by one and the insertion index goes up by 1 too.
+            num_sub_trees_to_skip -= 1
+            insertion_idx += 1
+
+        self.entries.insert(insertion_idx, new_tree)
+        self.entries[parent_idx].num_subtrees = str(parent_num_sub_trees + 1)
+        self.__update_length()
+
     def __parse(self, extension):
-        """Parse the tree cache extension"""
+        """ Parse the input tree cache extension, save the result to self
+
+        INPUT:
+            extension - bytes object that contains the extension
+        RETURN:
+            None
+        """
 
         # Extension signature
         self.signature = extension[0:4].decode("ascii")
@@ -619,13 +819,21 @@ class IndexTreeCacheExt():
         # Extension data
         te_entries = []
 
+        subdir_count_stack = []
+        current_path = "./"
         # Index into the data that's being read
         idx = IndexTreeCacheExt.num_bytes_before_data
         while idx < IndexTreeCacheExt.num_bytes_before_data + self.ext_length:
+            if len(subdir_count_stack) != 0:
+                while subdir_count_stack[-1][1] == 0:
+                    # Remove the last component from path
+                    subdir_count_stack.pop()
+                    current_path = os.path.dirname(current_path)
+
             # Read NUL-terminated path component (relative to its parent
             # directory)
             null_char_after_path = extension.find(b'\x00', idx)
-            patch_component = extension[idx:null_char_after_path].decode("ascii")
+            path_component = extension[idx:null_char_after_path].decode("ascii")
 
             # Read ASCII decimal number of entries in the index that is
             # covered by the tree this entry represents (entry_count). Skip the
@@ -637,7 +845,13 @@ class IndexTreeCacheExt():
             # Read ASCII decimal number that represents the number of subtrees
             # this tree has
             idx = space_char_after_entry_count + 1
-            num_subtries = extension[idx:idx+1].decode("ascii")
+            num_subtrees = extension[idx:idx+1].decode("ascii")
+
+            if path_component != '':
+                subdir_count_stack[-1][1] -= 1
+            subdir_count_stack.append([path_component, int(num_subtrees)])
+            if path_component != './':
+                current_path = os.path.join(current_path, path_component)
 
             # Read a newline (ASCII 10)
             idx += 1
@@ -649,7 +863,8 @@ class IndexTreeCacheExt():
             # If this entry has been invalided, save it and move to the next
             # one ...
             if entry_count == -1:
-                te_entries.append((patch_component, entry_count, num_subtries, None))
+                te_entries.append(IndexTreeEntry(current_path, entry_count,
+                    num_subtrees, None))
                 continue
 
             # ... otherwise read object name for the object that would result
@@ -658,12 +873,18 @@ class IndexTreeCacheExt():
                     binascii.hexlify(extension[idx:idx+GIT_CHECKSUM_SIZE_BYTES])
             object_name = object_name_bytes.decode("ascii")
             idx += GIT_CHECKSUM_SIZE_BYTES
-            te_entries.append((patch_component, entry_count, num_subtries, object_name))
+            te_entries.append(IndexTreeEntry(current_path, entry_count, num_subtrees, object_name))
 
         return te_entries
 
     def print_to_bytes(self):
-        """Pack this extension as a bytes object"""
+        """ Pack this extension as a bytes object
+
+        INPUT:
+            None
+        RETURN:
+            This object packed as bytes object
+        """
         if self.ext_length == 0:
             return b''
 
@@ -671,66 +892,119 @@ class IndexTreeCacheExt():
         contents += struct.pack("! I", self.ext_length)
 
         for entry in self.entries:
-            if entry[0] != '':
-                contents += entry[0].encode()
+            if entry.path_component != '':
+                contents += os.path.basename(entry.path_component).encode()
             # Null character after the path
             contents += struct.pack("! c", b'\x00')
             # ASCII decimal number of entries in the index that is covered by
             # the tree this entry represents (entry_count)
-            contents += str(entry[1]).encode()
+            contents += str(entry.entry_count).encode()
             # A space (ASCII 32)
             contents += struct.pack("! c", b'\x20')
             # ASCII decimal number that represents the numbe rof subtrees this
             # tree has
-            # NOTE: num_subtries could be more than one character!
-            contents += str(entry[2]).encode()
+            # NOTE: num_subtrees could be more than one character!
+            contents += str(entry.num_subtrees).encode()
             # A newline (ASCII 10)
             contents += struct.pack("! c", b'\x0A')
             # Object name for the object that would result from writhing this
             # span of index as a tree
-            if entry[1] != GIT_INVALID_ENTRY_COUNT:
-                contents += binascii.unhexlify(entry[3].encode())
+            if entry.entry_count != GIT_INVALID_ENTRY_COUNT:
+                contents += binascii.unhexlify(entry.sha.encode())
 
         return contents
 
-    def invalidate(self, path):
-        """ When a path is updated in index, Git invalidates all nodes of the
+    def print_to_stdout(self):
+        """ Print this cache tree to stdout """
+        if self.ext_length == 0:
+            return
+
+        for entry in self.entries:
+            print(f'{entry.path_component, entry.entry_count, entry.num_subtrees, entry.sha}')
+
+    def invalidate(self, dir_path):
+        """ Invalidate cache tree entry correspondong to dir_path
+
+        When a file is updated in index, Git invalidates all nodes of the
         recursive cache tree corresponding to the parent directories of that
-        path.
+        file. This method invalidates _just_ the tree entry corresponding
+        dir_path.
 
-        Limitations:
-            * only the specified path is invalided (sub-directories are ignored)
+        INPUT:
+            dir_path - directory to invalidate
         """
-        for idx, entry in enumerate(self.entries):
-            if entry[0] != path:
+        for entry in self.entries:
+            if Path(entry.path_component) not in Path(dir_path).parents:
                 continue
-
-            entry_list = list(entry)
+            if entry.entry_count == GIT_INVALID_ENTRY_COUNT:
+                continue
 
             # ASCII decimal number of entries in the index that is covered by
             # the tree this entry represents (entry_count)
-            entry_count_num_ascii_chars = len(str(entry_list[1]))
-            entry_list[1] = GIT_INVALID_ENTRY_COUNT
+            entry_count_num_ascii_chars = len(str(entry.entry_count))
+            entry.entry_count = GIT_INVALID_ENTRY_COUNT
 
             # Object name for the object that would result from writhing this
             # span of index as a tree
-            entry_list[3] = None
-            self.entries[idx] = tuple(entry_list)
+            entry.sha = None
             self.ext_length -= (GIT_CHECKSUM_SIZE_BYTES +
                 entry_count_num_ascii_chars - GIT_NUM_OF_ASCII_CHARS_INVALID_EC)
-
+        self.__update_length()
 
     def validate(self):
-        """Validate the contents stored in this extension
-        """
+        """ Validate the contents stored in this extension """
         contents = self.print_to_bytes()
         if (len(contents) == 0) and self.ext_length == 0:
             return
+
+        assert self.ext_length >= 0, "GFG: negative extension size!"
 
         assert len(contents) ==\
                 self.ext_length + IndexTreeCacheExt.num_bytes_before_data,\
                 "GFG: Invalid cache tree extension length"
 
+    def __update_length(self):
+        """ Update the length of this extension based on the data stored """
+        contents = self.print_to_bytes()
+        # `contents` will contain extension signature and size, which should
+        # not be included in the extension size itself. Adjust the size
+        # accordingly. Note that this only makes sense if there is a non-empty
+        # extension.
+        if contents != b'':
+            self.ext_length = len(contents) - IndexTreeCacheExt.num_bytes_before_data
+
+    def get_entries_by_dirname(self, dir_to_retrieve):
+        """Retrieve cache index entries corresponding to dir_to_retrieve
+
+        Retrieves the list of tree cache index entries that correspond to
+        dir_to_retrieve.  Note that there might be more than one such entry,
+        e.g. when there are multiple dirs with similar names, but in different
+        sub-dirs.
+
+        INPUT:
+            dir_to_retrieve - name of the directory for which the index entries
+            are requested (either full path relative to top repo path or the
+            last component, i.e. 'test-dir-2' in 'test-dir-1/test-dir-2')
+        RETURN:
+            A list of matching index entries
+        """
+        matching_entries = [entry for entry in self.entries if\
+                (entry.path_component == dir_to_retrieve or
+                    os.path.basename(entry.path_component) == dir_to_retrieve)]
+
+        return matching_entries
+
+    def update_tree_entry(self, new_entry: IndexTreeEntry):
+        """ Update the tree entry corresponding to new_entry.path_component
+
+        INPUT:
+            new_entry - new tree entry to replace the old entry with
+        """
+        for idx, entry in enumerate(self.entries):
+            if entry.path_component == new_entry.path_component:
+                self.entries[idx] = new_entry
+
+        self.__update_length()
 
 if __name__ == "__main__":
     sys.exit(1)

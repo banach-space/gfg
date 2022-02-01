@@ -12,13 +12,17 @@ Table of Contents
 
 Supported commands
 ===========
+### Basic
 A list of implemented Git options with the supported flags (note that Git
 equivalents of these options normally support more flags):
 * `gfg init`
 * `gfg add <files>`
+* `gfg log`
+
+### Not so basic
 * `git cat-file (-t | -p | <type> ) <object>`
 * `gfg hash-object [-w] [--stdin] <file>`
-* `gfg log`
+* `gfg write-tree`
 
 Contributing
 ===========

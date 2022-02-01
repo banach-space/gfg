@@ -26,6 +26,7 @@ class TestGitRepositoryClass(unittest.TestCase):
         # Files from create_test_repo.sh
         self.test_file_1 = "gfg-test-file-1"
         self.test_file_2 = "gfg-test-file-2"
+        self.test_file_3 = "gfg-test-file-3"
 
     def tearDown(self):
         # Remove the test repo
@@ -76,9 +77,25 @@ class TestGitRepositoryClass(unittest.TestCase):
         self.assertTrue(repo.is_object_in_repo("81c545efebe5f57d4cab2ba9ec294c4b0cadf672"))
         self.assertTrue(repo.is_object_in_repo("81c5"))
 
+        # gfg-test-file-{2|3|4|5} (identical content ==> identical hash)
+        self.assertTrue(repo.is_object_in_repo("79ed404b9b839e31ab01724a986c7d67218c1471"))
+        self.assertTrue(repo.is_object_in_repo("79ed"))
+
+        # gfg-test-dir-1
+        self.assertTrue(repo.is_object_in_repo("4414db5a498804bcac80c7d69e4336d5d3b1f959"))
+        self.assertTrue(repo.is_object_in_repo("4414"))
+
+        # gfg-test-dir-2
+        self.assertTrue(repo.is_object_in_repo("5efbdfbd1ee1d1c4ff719cc49557b5ce0908dd5e"))
+        self.assertTrue(repo.is_object_in_repo("5efb"))
+
+        # gfg-test-dir-3
+        self.assertTrue(repo.is_object_in_repo("c36247cfedf3f114e04e30026eb3b2966e214aab"))
+        self.assertTrue(repo.is_object_in_repo("c362"))
+
         # The Git tree for the first commit
-        self.assertTrue(repo.is_object_in_repo("78a93e16e05870b898c4605d766eb61be81847ce"))
-        self.assertTrue(repo.is_object_in_repo("78a9"))
+        self.assertTrue(repo.is_object_in_repo("492f68c88a08d083dfae178bd85cfcc38f4f0851"))
+        self.assertTrue(repo.is_object_in_repo("492f"))
 
 
 if __name__ == "__main__":
