@@ -40,8 +40,7 @@ class TestIndexClass(unittest.TestCase):
         self.index_file.validate()
 
         # Files from create_test_repo.sh
-        self.test_file_1 = "gfg-test-file-1"
-        self.test_file_2 = "gfg-test-file-2"
+        self.test_files = ["gfg-test-file-1", "gfg-test-file-2"]
 
     def tearDown(self):
         # Remove the test repo
@@ -70,7 +69,7 @@ class TestIndexClass(unittest.TestCase):
         entries = self.index_file.get_entries_by_filename("random-file.py")
         self.assertTrue(len(entries) == 0, "Random entries present in index")
 
-        entries = self.index_file.get_entries_by_filename(self.test_file_1)
+        entries = self.index_file.get_entries_by_filename(self.test_files[0])
         self.assertTrue(len(entries) == 1, "git_index.py is missing from index")
 
     def test_small_change_sanity(self):
@@ -80,7 +79,7 @@ class TestIndexClass(unittest.TestCase):
         file. Next, verifies that the original and the new files are different.
         """
         # Change path name in one of the entries in the index file (doesn't matter _which_)
-        entries = self.index_file.get_entries_by_filename(self.test_file_2)
+        entries = self.index_file.get_entries_by_filename(self.test_files[1])
         entries[0].path_name = "PATHNAME_MODIFIED_IN_TEST.py"
         self.index_file.validate()
 
@@ -161,10 +160,10 @@ class TestIndexClass(unittest.TestCase):
         """
         # Change path name in one of the entries in the index file (it doesn't
         # matter _which_). Note that this invalidates the current index checksum.
-        entries = self.index_file.get_entries_by_filename(self.test_file_1)
+        entries = self.index_file.get_entries_by_filename(self.test_files[0])
         entries[0].path_name = "PATHNAME_MODIFIED_IN_TEST.py"
 
-        entries = self.index_file.get_entries_by_filename(self.test_file_2)
+        entries = self.index_file.get_entries_by_filename(self.test_files[1])
         entries[0].path_name = "PATHNAME2_MODIFIED_IN_TEST.py"
 
         # Calculate new SHA-1
@@ -195,6 +194,17 @@ class TestIndexClass(unittest.TestCase):
         self.index_file.extension_tree_cache.invalidate(".")
         self.index_file.extension_tree_cache.validate()
         self.index_file.validate()
+
+    def test_file_mode(self):
+        """ Verify that index entries corresponding to files have correct file
+        mode.
+        """
+        regular_file_mode = 0o100644
+        file_entries = self.index_file.get_entries_by_filename(self.test_files[0])
+        self.assertTrue(file_entries[0].mode == regular_file_mode)
+
+        file_entries = self.index_file.get_entries_by_filename(self.test_files[1])
+        self.assertTrue(file_entries[0].mode == regular_file_mode)
 
 
 if __name__ == "__main__":
