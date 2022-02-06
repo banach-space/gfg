@@ -27,9 +27,10 @@ def create_git_object(repo : GitRepository, sha):
     RETURN:
         The generated object or None
     """
-    _, file_path = repo.get_object_path(sha)
-    if not file_path.exists():
+    if not repo.is_object_in_repo(sha):
         return None
+
+    _, file_path = repo.get_object_path(sha)
 
     # If the blob data was not provided, read it from the corresponding file
     data = bytes()
@@ -68,15 +69,15 @@ class GitObject():
         if self.object_hash is None:
             self.object_hash = hashlib.sha1(self.data).hexdigest()
 
-        # Calculate the file path from the object hash
-        self.file_dir, self.file_path = repo.get_object_path(self.object_hash)
-
-        # Now that we have the blob file path, check whether this object
-        # actually exists
+        # If the object does not exist yet, there's nothing else to do at the
+        # moment.
         # NOTE: Pack files are not supported!
-        if not self.file_path.exists():
+        if not repo.is_object_in_repo(self.object_hash):
             self.exists = False
             return
+
+        # Calculate the file path from the object hash
+        self.file_dir, self.file_path = repo.get_object_path(self.object_hash)
 
         # If the blob data was not provided, read it from the corresponding file
         if self.data is None:

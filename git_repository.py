@@ -45,16 +45,36 @@ class GitRepository():
 
         return None
 
+    def is_object_in_repo(self, object_hash: str):
+        """Check whether this repo contains an object with SHA matching object_hash?
+
+        INPUT:
+            object_hash - Git object hash to get the path for
+        RETURN:
+            True if `object_hash` exists, False otherwise
+        """
+        # Calculate the file path from the object hash
+        file_dir = Path(self.git_dir) / "objects" / object_hash[0:2]
+        file_path = Path(file_dir) / object_hash[2:]
+
+        list_of_matching_files = glob.glob(str(file_path) + "*")
+        if len(list_of_matching_files) == 1:
+            return True
+
+        return False
+
     def get_object_path(self, object_hash: str):
         """ Get the directory and the full path of a Git object
 
         This method generates Git repository path based on the object hash. It
-        does not check whether the corresponding object exists, i.e.
-            * if the Git object exists, the generated path corresponds to that
-            object
-            * if the Git object does not exist, the result should be discarded.
-        Callers of this method should verify whether the object exists.
-        Packfiles [3] are not supported!
+        assumes that the corresponding objects alrady exists in the repo.
+
+        Note that the object hash could be provided in its full form (e.g.
+        2c250da0045dc138bf12e2f0217bd30d375b44d7), or in a shortened form (e.g.
+        2c25). Both versions are accepted, but "short" hash must uniquely
+        identify the object within this repo.
+
+        LIMITATION: Packfiles [3] are not supported.
 
         INPUT:
             object_hash - Git object hash to get the path for
@@ -62,6 +82,8 @@ class GitRepository():
             dir, path - the directory and the full path of the object
             corresponding to the input Git object
         """
+        assert self.is_object_in_repo(object_hash)
+
         # Calculate the file path from the object hash
         file_dir = Path(self.git_dir) / "objects" / object_hash[0:2]
         file_path = Path(file_dir) / object_hash[2:]

@@ -1,16 +1,19 @@
 # test_index.py
 """Unit tests for index-file related classes
 
-Note that it uses the index file from the GFG repository as test input. This
-allows us to make some assumptions about the contents of the index file. It
-also means that test input is getting more and more complex. This is good for
-code coverage, but will hurt reproducibility.
+Note taht in `setUp`, a test Git repository is created with the
+create_test_repo.sh script. Knowledge of the structure of that repository might
+help in understanding the tests in this file.  This test repository is then
+deleted  at the end of this suite (i.e. in `tearDown`).
 """
 
 from shutil import copyfile
+from shutil import rmtree
 import os
+from pathlib import Path
 import unittest
 import hashlib
+import subprocess
 import git_index
 
 
@@ -23,16 +26,26 @@ class TestIndexClass(unittest.TestCase):
     index_file = None
 
     def setUp(self):
+        # Create a test repo
+        with subprocess.Popen(["bash", "create_test_repo.sh", "."],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+            self.test_repo_dir = Path(process.stdout.read().decode().strip('\n'))
+
         # Copy the index file of GFG and use that as input for tests
-        index_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../.git/index")
+        index_path = os.path.join(self.test_repo_dir, ".git/index")
         copyfile(index_path, self.file_name_in)
         self.index_file = git_index.IndexFile(self.file_name_in)
 
         # Parse the index file and validate it
         self.index_file.validate()
 
+        # Files from create_test_repo.sh
+        self.test_file_1 = "gfg-test-file-1"
+        self.test_file_2 = "gfg-test-file-2"
+
     def tearDown(self):
-        os.remove(self.file_name_in)
+        # Remove the test repo
+        rmtree(self.test_repo_dir)
 
     def test_read_write_sanity(self):
         """Write index file - sanity check
@@ -57,7 +70,7 @@ class TestIndexClass(unittest.TestCase):
         entries = self.index_file.get_entries_by_filename("random-file.py")
         self.assertTrue(len(entries) == 0, "Random entries present in index")
 
-        entries = self.index_file.get_entries_by_filename("git_index.py")
+        entries = self.index_file.get_entries_by_filename(self.test_file_1)
         self.assertTrue(len(entries) == 1, "git_index.py is missing from index")
 
     def test_small_change_sanity(self):
@@ -67,7 +80,7 @@ class TestIndexClass(unittest.TestCase):
         file. Next, verifies that the original and the new files are different.
         """
         # Change path name in one of the entries in the index file (doesn't matter _which_)
-        entries = self.index_file.get_entries_by_filename("git_index.py")
+        entries = self.index_file.get_entries_by_filename(self.test_file_2)
         entries[0].path_name = "PATHNAME_MODIFIED_IN_TEST.py"
         self.index_file.validate()
 
@@ -148,10 +161,10 @@ class TestIndexClass(unittest.TestCase):
         """
         # Change path name in one of the entries in the index file (it doesn't
         # matter _which_). Note that this invalidates the current index checksum.
-        entries = self.index_file.get_entries_by_filename("git_index.py")
+        entries = self.index_file.get_entries_by_filename(self.test_file_1)
         entries[0].path_name = "PATHNAME_MODIFIED_IN_TEST.py"
 
-        entries = self.index_file.get_entries_by_filename("git_repository.py")
+        entries = self.index_file.get_entries_by_filename(self.test_file_2)
         entries[0].path_name = "PATHNAME2_MODIFIED_IN_TEST.py"
 
         # Calculate new SHA-1
