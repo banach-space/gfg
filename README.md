@@ -1,25 +1,64 @@
-# gfg
 Git From Glasgow
+================
 
 [![unittests](https://github.com/banach-space/gfg/workflows/Ubuntu-unittests/badge.svg?branch=main)](https://github.com/banach-space/gfg/actions?query=workflow%3AUbuntu-unittests+branch%3Amain)
 [![pylint](https://github.com/banach-space/gfg/workflows/Ubuntu-pylint/badge.svg)](https://github.com/banach-space/gfg/actions?query=workflow%3AUbuntu-pylint+branch%3Amain)
 
+A custom implementation of Git - for those curious how stuff works!
+
+**Git From Glasgow** is a collection of Python scripts that implement the key
+Git data structures and the command line user interface. To avoid confusion,
+the equivalent of `git` in **Git From Glasgow** is called `gfg`. It follows a
+few basic design principles:
+
+* **Simplicity** - Only selected, most popular Git commands are implemented
+  (sufficient to create a repository and to commit new changes)
+* **Compatibility with Git** - Every Git command that is supported by Gfg is
+  fully compatibly with a similar command in Git (i.e. `git` and `gfg` are
+  interchangeable)
+* **Verifiability** - Compatibility with Git is tested using
+  [bats-core](https://github.com/bats-core/bats-core)
+
+
 Table of Contents
 =================
-* [Supported commands](#supported-commands)
+* [Installing and Testing](#installing-and-testing)
+* [Supported Git Commands](#supported-git-commands)
 * [Contributing](#contributing)
 * [References](#references)
 
-Supported commands
-===========
-### Basic
+Installing and Testing
+======================
+In order to use **Git From Glasgow**, you will require Python 3 (>= 3.6.9).  In
+order to run the Git conformance tests, you will also have to install
+[bats-core](https://github.com/bats-core/bats-core). Below is a full set-up
+that should work on most Unix platforms (tested on Ubuntu and MacOS):
+```bash
+# Clone GFG, add `gfg` to your path
+git clone https://github.com/banach-space/gfg
+export PATH=path/to/gfg:$PATH
+# Clone bats-core so that you can run the conformance tests, add `bats` to your path
+git clone https://github.com/bats-core/bats-core.git
+export PATH=path/to/bats-core:$PATH
+cd gfg/test
+# Run Git conformance tests
+bats -t .
+# Run GFG unit tests
+PYTHONPATH="../" python3 -m unittest
+```
+While I have tried to make **GFG** OS-agnostic, I have not been able to test it
+on Windows yet. Please let me know if you experience any issues!
+
+Supported Git Commands
+==================
 A list of implemented Git options with the supported flags (note that Git
 equivalents of these options normally support more flags):
+### Basic commands
 * `gfg init`
 * `gfg add <files>`
 * `gfg log`
 
-### Not so basic
+### Less basic commands
 * `git cat-file (-t | -p | <type> ) <object>`
 * `gfg hash-object [-w] [--stdin] <file>`
 * `gfg write-tree`
