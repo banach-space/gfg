@@ -3,20 +3,31 @@ name: Ubuntu-unittests
 on: [push]
 
 jobs:
-  build:
-    runs-on: ubuntu-18.04
+  Tests:
+    strategy:
+      matrix:
+        platform: [macOS-latest, ubuntu-18.04, ubuntu-latest]
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v1
-      - name: Install bats
+      - name: Clone bats
         run: |
           git clone https://github.com/bats-core/bats-core.git
+      - name: Install bats - Windows
+        if: matrix.platform == 'windows-latest'
+        run: |
+          cd bats-core
+          ./install.sh $HOME
+      - name: Install bats - Unix
+        if: matrix.platform != 'windows-latest'
+        run: |
           cd bats-core
           sudo ./install.sh /usr/local
-      - name: Run verification tests against git
-        run: |
-          cd test
-          bats -t .
       - name: Run unittests
         run: |
           cd test
-          PYTHONPATH="../" python3 -m unittest
+          PYTHONPATH="../" python3 -m unittest test_index.py
+      - name: Run Git conformance tests
+        run: |
+          cd test
+          bats -t .

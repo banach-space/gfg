@@ -495,7 +495,11 @@ class IndexEntry():
 
         self.dev = statinfo.st_dev
 
-        self.ino = statinfo.st_ino
+        # In Git's spec, inode is a 32 bit value. However, I did experience 64
+        # bit inodes on e.g. MacOS. AFAIK, internally Git only cares about the
+        # lower 32 bits. In practice, that should be sufficient to identify
+        # whether it has changed or not.
+        self.ino = statinfo.st_ino & 0xffffffff
 
         self.mode = statinfo.st_mode
 

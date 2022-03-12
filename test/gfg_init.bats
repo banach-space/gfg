@@ -34,10 +34,14 @@ teardown()
 
 @test "Test 'gfg init' + 'git status'" {
   output=$(git status 2>&1)
-  expected_output=$'On branch master\n\nNo commits yet\n\nnothing to commit (create/copy files and use "git add" to track)'
+  expected_output=$'On branch master\n\nNo commits yet\n\nnothing to commit'
   printf '<%s>\n' "$output"
   printf '<%s>\n' "$expected_output"
-	[ "$output" = "$expected_output" ]
+  # Depending on the version of Git that you use, there might be an extra note
+  # at the end of `git status` when run in an empty repo: "(create/copy files
+  # and use "git add" to track)". Here, I only make sure that the _beginning_ of
+  # $output (i.e. `git status`) matches $expected_output.
+	[[ "$output.*" =~ "$expected_output" ]]
 }
 
 @test "Test 'gfg init' + 'git log'" {
