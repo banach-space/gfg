@@ -12,6 +12,7 @@ from pathlib import Path
 import subprocess
 import unittest
 import git_repository
+from gfg_common import GIT_CHECKSUM_SIZE_BYTES
 
 class TestGitRepositoryClass(unittest.TestCase):
     """Top unit test class for this module
@@ -96,6 +97,15 @@ class TestGitRepositoryClass(unittest.TestCase):
         # The Git tree for the first commit
         self.assertTrue(repo.is_object_in_repo("492f68c88a08d083dfae178bd85cfcc38f4f0851"))
         self.assertTrue(repo.is_object_in_repo("492f"))
+
+    def test_get_head_rev(self):
+        """ Test the get_head_rev method"""
+        head_commit = git_repository.GitRepository.get_repo(".").get_head_rev()
+
+        # Each byte in the checksum requires 2 hex numbers, hence the
+        # multiplication by 2.
+        self.assertTrue(len(head_commit) == 2 * GIT_CHECKSUM_SIZE_BYTES)
+        self.assertTrue(isinstance(head_commit, str))
 
 
 if __name__ == "__main__":

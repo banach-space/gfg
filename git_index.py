@@ -33,9 +33,11 @@ import sys
 import hashlib
 from pathlib import Path
 from pprint import pprint
-# pylint: disable=W0401
-# Wildcard import gfg_common
-from gfg_common import *
+
+from gfg_common import GIT_CHECKSUM_SIZE_BYTES
+from gfg_common import GIT_INVALID_ENTRY_COUNT
+from gfg_common import GIT_NUM_OF_ASCII_CHARS_INVALID_EC
+from gfg_common import GFGError
 
 
 def read_from_mmapped_file(mmaped_file, format_char):

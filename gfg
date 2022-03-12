@@ -7,13 +7,13 @@ Inplements the user-facing interface for gfg
 
 import argparse
 import sys
-import os
 from pathlib import Path
 from git_repository import GitRepository
 from git_index import IndexFile
 from git_index import IndexTreeEntry
 from gfg_common import GIT_INVALID_ENTRY_COUNT
 from gfg_common import GFGError
+from gfg_common import get_name_and_email
 from git_object import GitBlobObject
 from git_object import GitTreeObject
 from git_object import GitCommitObject
@@ -73,7 +73,17 @@ gfg_log_parser.add_argument("--disable-ascii-escape", action="store_true",
 
 # `gfg write-tree`
 gfg_write_tree_parser = gfg_subparsers.add_parser("write-tree",
-    help="Show commit logs")
+    help="Create a tree object from the current index")
+
+# `gfg commit-tree`
+gfg_commit_tree_parser = gfg_subparsers.add_parser("commit-tree",
+    help="Create a new commit object")
+gfg_commit_tree_parser.add_argument("tree",
+    help="An existing tree object.")
+gfg_commit_tree_parser.add_argument("-m", nargs=1, metavar='message',
+        required=True,
+    help="A paragraph in the commit log message. "
+        "This can be given more than once and each <message> becomes its own paragraph.")
 
 #==============================================================================
 # Implement the supported commands
@@ -183,6 +193,24 @@ def cmd_write_tree(git_repo):
     # For compability with `git`, print the new (top) Tree hash
     print(index.extension_tree_cache.get_entries_by_dirname("./")[0].sha)
 
+def cmd_commit_tree(git_repo, message, tree):
+    """Implements `gfg commit-tree`
+
+    INPUT:
+        message - Git commit message
+        git_repo - Git repository in which to generate this commit object
+    """
+    if not git_repo.is_object_in_repo(tree):
+        print(f'fatal: not a valid object name {tree}')
+        return
+
+    name, email = get_name_and_email(git_repo.worktree_dir)
+    commit_obj = GitCommitObject(git_repo, parent=git_repo.get_head_rev(),
+            tree=tree, committer = f'{name} <{email}>', commit_message=message)
+
+    commit_obj.save_to_file()
+
+
 def cmd_cat_file(object_hash, pretty_print: bool, type_only: bool, this_repo):
     """Implements `gfg cat-file`"""
     gobj = create_git_object(this_repo, sha = object_hash)
@@ -212,27 +240,12 @@ def cmd_hash_object(this_repo : GitRepository, write_file : bool, file_to_hash=N
 def cmd_log(this_repo, disable_ascii_escape: bool = False):
     """Implements `gfg log`"""
 
-    # The revision inside `.git/HEAD`
-    head_rev = None
-    #
-    current_commit = None
+    # The commit to be printed. Start with HEAD
+    commit = this_repo.get_head_rev()
 
-    # 1. Get the contents of `.git/HEAD`
-    head_file_path = os.path.join(this_repo.git_dir, "HEAD")
-    with open(head_file_path, "r", encoding = 'utf-8') as head_file:
-        file_contents = head_file.read()
-        head_rev = file_contents.split(':')[1].lstrip().rstrip()
-
-    # 2. Get the contents of the revision file pointed to in `.git/HEAD`
-    # Note: technically speaking, it could be a _revision_ or a _tag_ (perhaps
-    # something else that I've missed)
-    rev_file_path = os.path.join(this_repo.git_dir, head_rev)
-    with open(rev_file_path, "r", encoding = 'utf-8') as rev_file:
-        current_commit = rev_file.read().rstrip()
-
-    # 3. Print the logs starting from the most recent commit
-    while current_commit is not None:
-        commit_obj = GitCommitObject(this_repo, current_commit)
+    # Print the logs for every commit in the history, starting from HEAD
+    while commit is not None:
+        commit_obj = GitCommitObject(this_repo, object_hash = commit)
 
         if not commit_obj.exists:
             print("GFG: The next parent object might be a packfile. "
@@ -245,7 +258,7 @@ def cmd_log(this_repo, disable_ascii_escape: bool = False):
         if commit_obj.parent_sha is not None:
             print()
 
-        current_commit = commit_obj.parent_sha
+        commit = commit_obj.parent_sha
 
 
 #==============================================================================
@@ -279,3 +292,5 @@ if __name__ == "__main__":
         cmd_log(repo, args.disable_ascii_escape)
     if args.command == "write-tree":
         cmd_write_tree(repo)
+    if args.command == "commit-tree":
+        cmd_commit_tree(repo, args.m[0], args.tree)

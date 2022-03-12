@@ -81,7 +81,7 @@ END
   [ "$output" = "$expected_output" ]
 }
 
-@test "Test 'gfg cat-file -t <blob_hash|tree_hash|commit_hash>'" {
+@test "Test 'gfg cat-file -t <blob|tree_hash|commit-hash>'" {
   output=$(../gfg/gfg cat-file -t $hash_file_1)
   expected="blob"
   [ "$output" = "$expected" ]
@@ -91,6 +91,20 @@ END
   [ "$output" = "$expected" ]
 
   output=$(../gfg/gfg cat-file -t $commit_hash)
+  expected="commit"
+  [ "$output" = "$expected" ]
+}
+
+@test "Test 'gfg cat-file -t <blob|tree|commit-shortened-hash>'" {
+  output=$(../gfg/gfg cat-file -t ${hash_file_1:0:5})
+  expected="blob"
+  [ "$output" = "$expected" ]
+
+  output=$(../gfg/gfg cat-file -t ${tree_hash:0:5})
+  expected="tree"
+  [ "$output" = "$expected" ]
+
+  output=$(../gfg/gfg cat-file -t ${commit_hash:0:5})
   expected="commit"
   [ "$output" = "$expected" ]
 }
@@ -106,6 +120,7 @@ END
 
 @test "Test 'gfg cat-file tree <invalid-tree>'" {
   invalid_tree="invalid-tree"
+
   set +e
   output=$(../gfg/gfg cat-file tree $invalid_tree 2>&1)
   expected=$(git cat-file tree $invalid_tree 2>&1)
@@ -115,6 +130,7 @@ END
 
 @test "Test 'gfg cat-file commit <invalid-commit>'" {
   invalid_commit="invalid-commit"
+
   set +e
   output=$(../gfg/gfg cat-file commit $invalid_commit 2>&1)
   expected=$(git cat-file commit $invalid_commit 2>&1)

@@ -15,6 +15,7 @@ import hashlib
 import struct
 from pathlib import Path
 import datetime
+import time
 import zlib
 from git_repository import GitRepository
 from git_index import GFGError
@@ -108,23 +109,14 @@ class GitObject():
         assert self.object_hash == hashlib.sha1(self.data).hexdigest(), \
             "GFG: Git hash and the actual data don't match"
 
+# pylint: disable=R0902
+# Too many instance attributes (8/7) (too-many-instance-attributes)
 class GitCommitObject(GitObject):
     """ Represents a Git commit object"""
     Author = namedtuple('Author', 'name email timestamp timezone')
     Committer = namedtuple('Committer', 'name email timestamp timezone')
 
-    def __init__(self, repo: GitRepository, object_hash: str = None, packed_data: bytes = None):
-        super().__init__(repo, object_hash, packed_data)
-        if not self.exists:
-            print(f"fatal: Not a valid object name {self.object_hash}")
-            return
-
-        self.parent_sha = None
-        self.tree_sha = None
-        self.committer = None
-        self.author = None
-        self.commit_msg = None
-
+    def __parse(self):
         # Read the object type
         space_after_obj_type = self.data.find(b' ')
         self.object_type = self.data[0:space_after_obj_type].decode("ascii")
@@ -178,6 +170,132 @@ class GitCommitObject(GitObject):
         self.commit_msg = str(self.data[idx:].decode("ascii"))
         self.commit_msg.rstrip()
 
+    def save_to_file(self):
+        """ Save this tree object to an actual file """
+
+        dir_name = self.object_hash[0:2]
+        file_name = self.object_hash[2:]
+
+        # Create the object sub-dir
+        full_dir = Path("./.git/objects/" + dir_name)
+        full_dir.mkdir(exist_ok=True)
+
+        # Create the object file
+        file_path = Path("./.git/objects/" + dir_name + "/" + file_name)
+        if os.path.exists(file_path):
+            raise GFGError(f"GFG! This commit already exists: {self.object_hash}!")
+
+        # Save the object file
+        file_path.write_bytes(zlib.compress(self.print_to_bytes()))
+        print(self.object_hash)
+
+    def print_to_bytes(self):
+        """ Print this object to a bytes object as per the spec [2]
+
+        Limitations:
+            * <timezone> is hard-coded as +0000
+
+        INPUT - none
+        RETURN - this Git object as Python bytes object
+        """
+        commit_str = "commit"
+        data: bytes = commit_str.encode()
+        data += b' '
+
+        contents = bytes()
+        contents += b'\x00'
+
+        # Tree hash
+        tree_str = "tree"
+        contents += tree_str.encode()
+        contents += b' '
+        contents += self.tree_sha.encode()
+        contents += b'\n'
+
+        # Parent hash
+        parent_str = "parent"
+        contents += parent_str.encode()
+        contents += b' '
+        contents += self.parent_sha.encode()
+        contents += b'\n'
+
+        # Author + time
+        author_str = "author"
+        contents += author_str.encode()
+        contents += b' '
+        contents += self.author.encode()
+        contents += b' '
+        contents += str(int(time.time())).encode()
+        contents += b' '
+        contents += "+0000".encode()
+        contents += b'\n'
+
+        # Comitter + time
+        committer_str = "committer"
+        contents += committer_str.encode()
+        contents += b' '
+        contents += self.committer.encode()
+        contents += b' '
+        contents += str(int(time.time())).encode()
+        contents += b' '
+        contents += "+0000".encode()
+        contents += b'\n'
+        contents += b'\n'
+
+        contents += b'\n'
+
+        # Commit message
+        contents += self.commit_msg.encode()
+        contents += b'\n'
+
+        # The actual data to return
+        data += str(len(contents) - 1).encode()
+        data += contents
+
+        return data
+
+    # pylint: disable=R0913
+    # Too many arguments (8/5) (too-many-arguments)
+    def __init__(
+            self,
+            repo: GitRepository,
+            object_hash: str = None,
+            packed_data: bytes = None,
+            parent: str = None,
+            tree: str = None,
+            committer: str = None,
+            commit_message: str = None):
+        super().__init__(repo, object_hash, packed_data)
+
+        self.parent_sha = parent
+        self.tree_sha = tree
+        self.committer = committer
+        self.author = committer
+        self.commit_msg = commit_message
+
+        # If this commit object already exists, just read it
+        if self.exists:
+            self.__parse()
+            return
+
+        # If creating a new commit from scratch, these fields are required
+        assert self.commit_msg is not None, "GFG: Missing commit message"
+        assert self.tree_sha is not None, "GFG: Missing commit tree"
+        assert self.committer is not None, "GFG: Missing committer"
+        assert self.author is not None, "GFG: Missing commit author"
+
+        # Tree hash might be in its shortened version. When creating a Git
+        # object, we need the full version.
+        if tree is not None:
+            _, tree_file_path = repo.get_object_path(tree)
+            path_list = tree_file_path.parts
+            tree_full_sha = path_list[-2] + path_list[-1]
+            self.tree_sha = tree_full_sha
+
+        if parent is None or tree is None:
+            raise GFGError("GFG: Missing data to create this object")
+
+        self.object_hash = hashlib.sha1(self.print_to_bytes()).hexdigest()
 
     @staticmethod
     def parse_author_or_committer(data, begin_idx):

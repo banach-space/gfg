@@ -62,6 +62,7 @@ equivalents of these options normally support more flags):
   ([documentation](https://git-scm.com/docs/git-cat-file))
 * `gfg hash-object [-w] [--stdin] <file>` ([documentation](https://git-scm.com/docs/git-hash-object))
 * `gfg write-tree` ([documentation](https://git-scm.com/docs/git-write-tree))
+* `gfg commit-tree -m message <tree>` ([documentation](https://git-scm.com/docs/git-commit-tree))
 
 Contributing
 ===========
