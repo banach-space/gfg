@@ -20,8 +20,7 @@ few basic design principles:
   [bats-core](https://github.com/bats-core/bats-core)
 
 
-Table of Contents
-=================
+### Table of Contents
 * [Installing and Testing](#installing-and-testing)
 * [Supported Git Commands](#supported-git-commands)
 * [Contributing](#contributing)
@@ -54,14 +53,15 @@ Supported Git Commands
 A list of implemented Git options with the supported flags (note that Git
 equivalents of these options normally support more flags):
 ### Basic commands
-* `gfg init`
-* `gfg add <files>`
-* `gfg log`
+* `gfg init` ([documentation](https://git-scm.com/docs/git-init))
+* `gfg add <files>` ([documentation](https://git-scm.com/docs/git-add))
+* `gfg log` ([documentation](https://git-scm.com/docs/git-log))
 
 ### Less basic commands
 * `git cat-file (-t | -p | <type> ) <object>`
-* `gfg hash-object [-w] [--stdin] <file>`
-* `gfg write-tree`
+  ([documentation](https://git-scm.com/docs/git-cat-file))
+* `gfg hash-object [-w] [--stdin] <file>` ([documentation](https://git-scm.com/docs/git-hash-object))
+* `gfg write-tree` ([documentation](https://git-scm.com/docs/git-write-tree))
 
 Contributing
 ===========
@@ -73,6 +73,8 @@ also much appreciated!
 
 References
 ===========
+A list of my favourite resources on Git internals that I have found incredibly
+helpful while working on **Git From Glasgow**:
 * _"Write yourself a Git!"_, Thibault Polge ([link](https://wyag.thb.lt/))
 * _"Git File format"_,  Jelmer Vernooĳ ([link](https://www.dulwich.io/docs/tutorial/file-format.html#git-file-format))
 * _"Git from the inside out"_, Mary Rose Cook ([link](https://maryrosecook.com/blog/post/git-from-the-inside-out))
