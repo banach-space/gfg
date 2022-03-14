@@ -499,6 +499,9 @@ class IndexEntry():
         # bit inodes on e.g. MacOS. AFAIK, internally Git only cares about the
         # lower 32 bits. In practice, that should be sufficient to identify
         # whether it has changed or not.
+        #
+        # Also, from https://github.com/git/git/blob/main/read-cache.c#L1756-L1758
+        # "dev/ino/uid/gid/size are also just tracked to the low 32 bits"
         self.ino = statinfo.st_ino & 0xffffffff
 
         self.mode = statinfo.st_mode
