@@ -11,14 +11,30 @@ Git data structures and the command line user interface. To avoid confusion,
 the equivalent of `git` in **Git From Glasgow** is called `gfg`. It follows a
 few basic design principles:
 
-* **Simplicity** - Only selected, most popular Git commands are implemented
-  (sufficient to create a repository and to commit new changes)
+* **Simplicity** - Only selected, most popular Git commands are available,
+  implementation
 * **Compatibility with Git** - Every Git command that is supported by Gfg is
   fully compatibly with a similar command in Git (i.e. `git` and `gfg` are
   interchangeable)
-* **Verifiability** - Compatibility with Git is tested using
-  [bats-core](https://github.com/bats-core/bats-core)
+* **Verifiability** - Every command that is supported is tested for
+  compatibility with Git (e.g. `git log` vs `gfg log`)
 
+### About
+**Git From Glasgow** implements the key elements of Git:
+
+* [index file](https://git-scm.com/docs/index-format#_cache_tree) (see [git_index.py](https://github.com/banach-space/gfg/blob/main/git_index.py))
+* various Git objects (blob, commit and commit, see [git_object.py](https://github.com/banach-space/gfg/blob/main/git_object.py))
+* Git command line interface, which in **Git From Glasgow** is called `gfg` (see [gfg](https://github.com/banach-space/gfg/blob/main/gfg))
+
+Although only selected Git commands are supported (see [Supported Git
+Commands](#supported-git-commands)), there is enough functionality to
+initialise a fresh repository and then to add and commit new changes.
+
+**Git From Glasgow** was written to develop a better understanding _how Git
+works_. This is not a replacement for **Git**.  Indeed, some key and more
+advanced features (e.g.
+[packfiles](https://git-scm.com/book/en/v2/Git-Internals-Packfiles)) are still
+missing and I currently have no bandwidth to implement them.
 
 ### Table of Contents
 * [Installing and Testing](#installing-and-testing)
