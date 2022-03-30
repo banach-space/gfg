@@ -12,27 +12,24 @@ the equivalent of `git` in **Git From Glasgow** is called `gfg`. It follows a
 few basic design principles:
 
 * **Simplicity** - Only selected, most popular Git commands are available,
-  implementation
-* **Compatibility with Git** - Every Git command that is supported by Gfg is
-  fully compatibly with a similar command in Git (i.e. `git` and `gfg` are
-  interchangeable)
-* **Verifiability** - Every command that is supported is tested for
-  compatibility with Git (e.g. `git log` vs `gfg log`)
+* **Compatibility with Git** - Every command that is supported is fully
+  compatibly with its Git equivalent in terms of syntax and semantics (i.e.
+  `git` and `gfg` are interchangeable)
+* **Standalone** - no external dependencies
 
 ### About
 **Git From Glasgow** implements the key elements of Git:
 
 * [index file](https://git-scm.com/docs/index-format#_cache_tree) (see [git_index.py](https://github.com/banach-space/gfg/blob/main/git_index.py))
-* various Git objects (blob, commit and commit, see [git_object.py](https://github.com/banach-space/gfg/blob/main/git_object.py))
-* Git command line interface, which in **Git From Glasgow** is called `gfg` (see [gfg](https://github.com/banach-space/gfg/blob/main/gfg))
+* various [Git objects](https://matthew-brett.github.io/curious-git/git_object_types.html) (e.g. blob, commit and commit, see [git_object.py](https://github.com/banach-space/gfg/blob/main/git_object.py))
+* Git command-line interface, which in **Git From Glasgow** is called `gfg` (see [gfg](https://github.com/banach-space/gfg/blob/main/gfg))
 
 Although only selected Git commands are supported (see [Supported Git
 Commands](#supported-git-commands)), there is enough functionality to
 initialise a fresh repository and then to add and commit new changes.
 
 **Git From Glasgow** was written to develop a better understanding _how Git
-works_. This is not a replacement for **Git**.  Indeed, some key and more
-advanced features (e.g.
+works_. This is not a replacement for **Git**.  Indeed, some key and more advanced features (e.g.
 [packfiles](https://git-scm.com/book/en/v2/Git-Internals-Packfiles)) are still
 missing and I currently have no bandwidth to implement them.
 
@@ -71,6 +68,7 @@ equivalents of these options normally support more flags):
 ### Basic commands
 * `gfg init` ([documentation](https://git-scm.com/docs/git-init))
 * `gfg add <files>` ([documentation](https://git-scm.com/docs/git-add))
+* `gfg commit -m message` ([documentation](https://git-scm.com/docs/git-commit))
 * `gfg log` ([documentation](https://git-scm.com/docs/git-log))
 
 ### Less basic commands
@@ -87,6 +85,24 @@ a new option), please open an
 [issue](https://github.com/banach-space/gfg/issues) to track this.
 Contributions in the form of bug reports, suggestions and general feedback are
 also much appreciated!
+
+ToDo's
+======
+Here's a list of things that I would like to add support for (patches welcome):
+
+* testing on Windows (may require some refactoring to make **GFG** actually
+  work on Windows)
+* `gfg rm` ([documentation](https://git-scm.com/docs/git-rm))
+* more tests
+
+I'm also aware that there might be some inconsistencies in the code that would
+be nice to fix:
+
+* `hash`, `sha` and `object_hash` are used interchangeably
+* classes in
+  [git_object.py](https://github.com/banach-space/gfg/blob/main/git_object.py)
+  have slightly inconsistent APIs
+* reduce the use of class variables (e.g. in `IndexEntry`)
 
 References
 ===========

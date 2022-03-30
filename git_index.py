@@ -733,7 +733,7 @@ class IndexTreeCacheExt():
             return
 
         self.ext_length = 0
-        self.signature = ""
+        self.signature = "TREE"
         self.entries = []
 
     def add_entry(self, new_tree: IndexTreeEntry):
@@ -761,6 +761,7 @@ class IndexTreeCacheExt():
             if len(self.entries) != 0:
                 raise GFGError("GFG: Trying to add tree entry for ''")
             self.entries.insert(0, new_tree)
+            self.__update_length()
             return
 
         # Index of the parent directory in the tree cache index
@@ -894,7 +895,7 @@ class IndexTreeCacheExt():
         RETURN:
             This object packed as bytes object
         """
-        if self.ext_length == 0:
+        if len(self.entries) == 0:
             return b''
 
         contents = self.signature.encode()
@@ -910,7 +911,7 @@ class IndexTreeCacheExt():
             contents += str(entry.entry_count).encode()
             # A space (ASCII 32)
             contents += struct.pack("! c", b'\x20')
-            # ASCII decimal number that represents the numbe rof subtrees this
+            # ASCII decimal number that represents the number of subtrees this
             # tree has
             # NOTE: num_subtrees could be more than one character!
             contents += str(entry.num_subtrees).encode()

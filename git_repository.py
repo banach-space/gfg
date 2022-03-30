@@ -79,10 +79,30 @@ class GitRepository():
         # Get the contents of the Git reference file pointed to by `.git/HEAD`
         head_commit = None
         ref_file_path = os.path.join(self.git_dir, ref_file_name)
+        if not os.path.exists(ref_file_path):
+            return None
         with open(ref_file_path, "r", encoding = 'utf-8') as ref_file:
             head_commit = ref_file.read().rstrip()
 
         return head_commit
+
+    def update_head_rev(self, new_head_sha):
+        """ Update .git/HEAD
+
+        INPUT:
+            new_head_sha - new SHA for .git/HEAD
+        """
+        # Get the contents of .git/HEAD - a Git reference file
+        ref_file_name = None
+        head_file_path = os.path.join(self.git_dir, "HEAD")
+        with open(head_file_path, "r", encoding = 'utf-8') as head_file:
+            file_contents = head_file.read()
+            ref_file_name = file_contents.split(':')[1].lstrip().rstrip()
+
+        # Get the contents of the Git reference file pointed to by `.git/HEAD`
+        ref_file_path = os.path.join(self.git_dir, ref_file_name)
+        with open(ref_file_path, "w+", encoding = 'utf-8') as ref_file:
+            ref_file.write(new_head_sha)
 
 
     def get_object_path(self, object_hash: str):

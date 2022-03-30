@@ -187,7 +187,6 @@ class GitCommitObject(GitObject):
 
         # Save the object file
         file_path.write_bytes(zlib.compress(self.print_to_bytes()))
-        print(self.object_hash)
 
     def print_to_bytes(self):
         """ Print this object to a bytes object as per the spec [2]
@@ -212,12 +211,13 @@ class GitCommitObject(GitObject):
         contents += self.tree_sha.encode()
         contents += b'\n'
 
-        # Parent hash
-        parent_str = "parent"
-        contents += parent_str.encode()
-        contents += b' '
-        contents += self.parent_sha.encode()
-        contents += b'\n'
+        # Parent hash (parent is not required, so just skip if not present)
+        if self.parent_sha is not None:
+            parent_str = "parent"
+            contents += parent_str.encode()
+            contents += b' '
+            contents += self.parent_sha.encode()
+            contents += b'\n'
 
         # Author + time
         author_str = "author"
@@ -292,7 +292,7 @@ class GitCommitObject(GitObject):
             tree_full_sha = path_list[-2] + path_list[-1]
             self.tree_sha = tree_full_sha
 
-        if parent is None or tree is None:
+        if tree is None:
             raise GFGError("GFG: Missing data to create this object")
 
         self.object_hash = hashlib.sha1(self.print_to_bytes()).hexdigest()
