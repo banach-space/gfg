@@ -12,10 +12,9 @@ the equivalent of `git` in **Git From Glasgow** is called `gfg`. It follows a
 few basic design principles:
 
 * **Simplicity** - Only selected, most popular Git commands are available,
-* **Compatibility with Git** - Every command that is supported is fully
-  compatibly with its Git equivalent in terms of syntax and semantics (i.e.
-  `git` and `gfg` are interchangeable)
-* **Standalone** - no external dependencies
+* **Compatibility with Git** - Every command is fully compatibly with its Git
+  equivalent (i.e.  `git` and `gfg` are interchangeable),
+* **Standalone** - there are no external dependencies beyond Python.
 
 ### About
 **Git From Glasgow** implements the key elements of Git:
@@ -86,23 +85,26 @@ a new option), please open an
 Contributions in the form of bug reports, suggestions and general feedback are
 also much appreciated!
 
-ToDo's
+ToDo
 ======
 Here's a list of things that I would like to add support for (patches welcome):
 
 * testing on Windows (may require some refactoring to make **GFG** actually
   work on Windows)
 * `gfg rm` ([documentation](https://git-scm.com/docs/git-rm))
+* `gfg branch` ([documentation](https://git-scm.com/docs/git-branch))
+* `gfg checkout` ([documentation](https://git-scm.com/docs/git-checkout))
+* `gfg push` ([documentation](https://git-scm.com/docs/git-push))
 * more tests
 
 I'm also aware that there might be some inconsistencies in the code that would
 be nice to fix:
 
-* `hash`, `sha` and `object_hash` are used interchangeably
-* classes in
+* `hash`, `sha` and `object_hash` are used interchangeably. Choose one instead.
+* Classes in
   [git_object.py](https://github.com/banach-space/gfg/blob/main/git_object.py)
   have slightly inconsistent APIs
-* reduce the use of class variables (e.g. in `IndexEntry`)
+* Reduce the use of class variables (e.g. in `IndexEntry`).
 
 References
 ===========
