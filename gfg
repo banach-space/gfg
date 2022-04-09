@@ -88,6 +88,11 @@ gfg_commit_tree_parser.add_argument("-m", nargs=1, metavar='message',
 # `gfg commit`
 gfg_commit_parser = gfg_subparsers.add_parser("commit",
     help="Record changes to the repository")
+gfg_commit_parser.add_argument("-m", nargs=1, metavar='msg',
+        required=True,
+    help="Use the given <msg> as the commit message. "
+        "If multiple -m options are given, their values are concatenated as separate paragraphs."
+        )
 
 #==============================================================================
 # Implement the supported commands
@@ -221,7 +226,7 @@ def cmd_commit_tree(git_repo, message, tree):
     # For compatibility with `git`, print the new (top) commit hash
     print(commit_obj.object_hash)
 
-def cmd_commit(git_repo):
+def cmd_commit(git_repo, message):
     """Implements `gfg commit`
 
     INPUT:
@@ -237,7 +242,7 @@ def cmd_commit(git_repo):
 
     name, email = get_name_and_email(git_repo.worktree_dir)
     commit_obj = GitCommitObject(git_repo, parent=git_repo.get_head_rev(),
-            tree=tree, committer = f'{name} <{email}>', commit_message="Work in progress")
+            tree=tree, committer = f'{name} <{email}>', commit_message=message)
 
     commit_obj.save_to_file()
     git_repo.update_head_rev(commit_obj.object_hash)
@@ -326,4 +331,4 @@ if __name__ == "__main__":
     if args.command == "commit-tree":
         cmd_commit_tree(repo, args.m[0], args.tree)
     if args.command == "commit":
-        cmd_commit(repo)
+        cmd_commit(repo, args.m[0])

@@ -24,7 +24,7 @@ setup()
   git config --local user.name "GFG Test"
 
   # Create the commit
-  ../gfg/gfg commit
+  ../gfg/gfg commit -m "Test commit GFG"
 }
 
 teardown()
@@ -64,6 +64,6 @@ teardown()
   [ "$output_l5" = "$expected_output" ]
 
   output_l6=$(git cat-file -p $head_commit_hash | sed -n "6p")
-  expected_output="Work in progress"
+  expected_output="Test commit GFG"
   [[ "$output_l6.*" =~ "$expected_output" ]]
 }

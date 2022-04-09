@@ -34,7 +34,7 @@ setup()
   echo "4321" >> test-dir-2/test-dir-3/gfg-test-file-3
 
   ../gfg/gfg add test-dir-2/test-dir-3/*
-  ../gfg/gfg commit
+  ../gfg/gfg commit -m "Test commit 2"
 }
 
 teardown()
@@ -78,6 +78,6 @@ teardown()
   [ "$output_l6" = "$expected_output" ]
 
   output_l7=$(git cat-file -p $head_commit_hash | sed -n "7p")
-  expected_output="Work in progress"
+  expected_output="Test commit 2"
   [[ "$output_l7.*" =~ "$expected_output" ]]
 }
