@@ -7,14 +7,16 @@ Git From Glasgow
 A custom implementation of Git - for those curious how stuff works!
 
 **Git From Glasgow** is a collection of Python scripts that implement the key
-Git data structures and the command line user interface. To avoid confusion,
-the equivalent of `git` in **Git From Glasgow** is called `gfg`. It follows a
-few basic design principles:
+Git data structures and the command line user interface. It follows a
+few basic design principles: 
 
-* **Simplicity** - Only selected, most popular Git commands are available,
-* **Compatibility with Git** - Every command is fully compatibly with its Git
-  equivalent (i.e.  `git` and `gfg` are interchangeable),
-* **Standalone** - there are no external dependencies beyond Python.
+* **Simplicity** - Only selected, most popular Git commands are available.
+* **Compatibility with Git** - Every command is fully compatible with its Git
+  equivalent.
+* **Standalone** - There are no external dependencies beyond Python.
+
+To avoid confusion, the command-line interface in **Git From Glasgow** is
+called `gfg` rather than `git`.
 
 ### About
 **Git From Glasgow** implements the key elements of Git:
@@ -24,13 +26,15 @@ few basic design principles:
 * Git command-line interface, which in **Git From Glasgow** is called `gfg` (see [gfg](https://github.com/banach-space/gfg/blob/main/gfg))
 
 Although only selected Git commands are supported (see [Supported Git
-Commands](#supported-git-commands)), there is enough functionality to
-initialise a fresh repository and then to add and commit new changes.
+Commands](#supported-git-commands)), the available functionality is sufficient
+to initialise a fresh repository, add and commit new changes or to read the
+contents of an existing repository.
 
-**Git From Glasgow** was written to develop a better understanding _how Git
-works_. This is not a replacement for **Git**.  Indeed, some key and more advanced features (e.g.
-[packfiles](https://git-scm.com/book/en/v2/Git-Internals-Packfiles)) are still
-missing and I currently have no bandwidth to implement them.
+**Git From Glasgow** is meant to help develop a better understanding of _how
+Git works_. It is not meant as a replacement for **Git**. Indeed, some key and
+more advanced features (e.g.
+[packfiles](https://git-scm.com/book/en/v2/Git-Internals-Packfiles)) are not
+available.
 
 ### Table of Contents
 * [Installing and Testing](#installing-and-testing)
@@ -57,13 +61,14 @@ bats -t .
 # Run GFG unit tests
 PYTHONPATH="../" python3 -m unittest
 ```
-While I have tried to make **GFG** OS-agnostic, I have not been able to test it
-on Windows yet. Please let me know if you experience any issues!
+While I have strived to make **GFG** OS-agnostic, I have not been able to test
+it on Windows yet. Please let me know if you experience any issues!
 
 Supported Git Commands
 ==================
-A list of implemented Git options with the supported flags (note that Git
-equivalents of these options normally support more flags):
+Below is a list of Git options supported by **Git From Glasgow** with the
+supported flags (note that Git equivalents of these options normally support
+more flags):
 ### Basic commands
 * `gfg init` ([documentation](https://git-scm.com/docs/git-init))
 * `gfg add <files>` ([documentation](https://git-scm.com/docs/git-add))
@@ -80,14 +85,15 @@ equivalents of these options normally support more flags):
 Contributing
 ===========
 Pull requests are very welcome! If you want to make a larger contribution (e.g.
-a new option), please open an
+add a new option), please open an
 [issue](https://github.com/banach-space/gfg/issues) to track this.
+
 Contributions in the form of bug reports, suggestions and general feedback are
 also much appreciated!
 
 ToDo
 ======
-Here's a list of things that I would like to add support for (patches welcome):
+Here's a list of things that I would like to add support for (PRs welcome!):
 
 * testing on Windows (may require some refactoring to make **GFG** actually
   work on Windows)
@@ -103,13 +109,13 @@ be nice to fix:
 * `hash`, `sha` and `object_hash` are used interchangeably. Choose one instead.
 * Classes in
   [git_object.py](https://github.com/banach-space/gfg/blob/main/git_object.py)
-  have slightly inconsistent APIs
+  have slightly inconsistent APIs.
 * Reduce the use of class variables (e.g. in `IndexEntry`).
 
 References
 ===========
-A list of my favourite resources on Git internals that I have found incredibly
-helpful while working on **Git From Glasgow**:
+A list of my favourite resources on Git internals. I have found these
+incredibly helpful while working on **Git From Glasgow**.
 * _"Write yourself a Git!"_, Thibault Polge ([link](https://wyag.thb.lt/))
 * _"Git File format"_,  Jelmer Vernooĳ ([link](https://www.dulwich.io/docs/tutorial/file-format.html#git-file-format))
 * _"Git from the inside out"_, Mary Rose Cook ([link](https://maryrosecook.com/blog/post/git-from-the-inside-out))
