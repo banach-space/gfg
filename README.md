@@ -27,14 +27,18 @@ called `gfg` rather than `git`.
 
 Although only selected Git commands are supported (see [Supported Git
 Commands](#supported-git-commands)), the available functionality is sufficient
-to initialise a fresh repository, add and commit new changes or to read the
-contents of an existing repository.
+to:
 
-**Git From Glasgow** is meant to help develop a better understanding of _how
-Git works_. It is not meant as a replacement for **Git**. Indeed, some key and
-more advanced features (e.g.
-[packfiles](https://git-scm.com/book/en/v2/Git-Internals-Packfiles)) are not
-available.
+* initialise a fresh repository (`gfg init`),
+* add and commit new changes (e.g. `gfg add` and `gfg commit`),
+* read the contents of an existing repository (e.g. `gfg log` and `gfg
+  cat-file`).
+
+The main goal of **Git From Glasgow** is to help understand _how Git works_
+(including the fine details). It is not meant as a replacement for **Git**.
+Indeed, some key and more advanced features are not available (e.g.
+[packfiles](https://git-scm.com/book/en/v2/Git-Internals-Packfiles)). For this
+reason, it is best to experiment with **GFG** in a dedicated test repository.
 
 ### Table of Contents
 * [Installing and Testing](#installing-and-testing)
