@@ -7,6 +7,13 @@ setup()
 {
   TEST_REPO_DIR="test_repo_dir"
 
+  # Are we on Linux or on Darwin?
+  OS="$(uname -s)"
+  is_macos=false
+  is_linux=false
+  [[ "$OS" == "Darwin" ]] && is_macos=true
+  [[ "$OS" == "Linux"  ]] && is_linux=true
+
   # Go outside the GFG repo
   cd ../../ || exit 1
 
@@ -26,9 +33,18 @@ teardown()
 
 @test "Test 'gfg init' + 'ls'" {
   output=$(ls .git/)
-  expected_output=$'HEAD\nbranches\nconfig\ndescription\nobjects\nrefs'
+
+  # On Darwin (unlike on Linux), file names are case-insensitive and hence the
+  # generated (and hence expected) output will differ depending on the OS. 
+  if $is_linux; then
+    expected_output=$'HEAD\nbranches\nconfig\ndescription\nobjects\nrefs'
+  else
+    expected_output=$'branches\nconfig\ndescription\nHEAD\nobjects\nrefs'
+  fi
+
   printf '<%s>\n' "$output"
   printf '<%s>\n' "$expected_output"
+
 	[ "$output" = "$expected_output" ]
 }
 

@@ -35,5 +35,6 @@ jobs:
           PYTHONPATH="../" python3 -m unittest test_index.py
       - name: Run Git conformance tests
         run: |
+          git --version
           cd test
           bats -t .

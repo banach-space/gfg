@@ -75,6 +75,8 @@ supported flags (note that Git equivalents of these options normally support
 more flags):
 ### Basic commands
 * `gfg init` ([documentation](https://git-scm.com/docs/git-init))
+ **  NOTE: `gfg` does not generate all the directories that `git` does (e.g.
+ `hooks` and `info`).
 * `gfg add <files>` ([documentation](https://git-scm.com/docs/git-add))
 * `gfg commit -m message` ([documentation](https://git-scm.com/docs/git-commit))
 * `gfg log` ([documentation](https://git-scm.com/docs/git-log))
