@@ -14,6 +14,8 @@ import os
 import glob
 from pathlib import Path
 
+from gfg_common import GFGError
+
 class GitRepository():
     """A git repository"""
 
@@ -223,7 +225,7 @@ class GitRepository():
         '''
         full_path = os.path.join(*directory)
         if os.path.exists(full_path):
-            raise Exception(f"Git dirctory {directory} already exists!")
+            raise GFGError(f"Git dirctory {directory} already exists!")
 
         os.makedirs(os.path.join(self.git_dir, *directory))
 
@@ -246,14 +248,14 @@ class GitRepository():
 
         # Check that it esists
         if not os.path.exists(config_file):
-            raise Exception("Repository local configuration file missing")
+            raise GFGError("Repository local configuration file missing")
 
         self.git_config.read([config_file])
 
         # Check the repository version - only Version '0' is supported, see [1]
         format_version = int(self.git_config.get("core", "repositoryformatversion"))
         if format_version != 0:
-            raise Exception(f"Unsupported repositoryformatversion {format_version}")
+            raise GFGError(f"Unsupported repositoryformatversion {format_version}")
 
     def create_default_config(self):
         '''Create the default Git config for this repository'''

@@ -102,7 +102,7 @@ class GitObject():
         # pylint: disable=unused-argument
         assert self.object_type not in ["blob", "tree", "commit"], \
                 "GFG: Wrong `print` version"
-        raise Exception("Unimplemented!")
+        raise GFGError("Unimplemented!")
 
     def verify(self):
         """ Trivial sanity check """
@@ -128,7 +128,7 @@ class GitCommitObject(GitObject):
                 self.data[space_after_obj_type:null_char_after_obj_len].decode("ascii")
                 )
         if self.object_size != len(self.data)-null_char_after_obj_len-1:
-            raise Exception(f"Malformed object {self.object_hash}: bad length")
+            raise GFGError(f"Malformed object {self.object_hash}: bad length")
 
         # Read: parent, author, committer, tree
         idx = null_char_after_obj_len + 1
@@ -256,6 +256,8 @@ class GitCommitObject(GitObject):
 
     # pylint: disable=R0913
     # Too many arguments (8/5) (too-many-arguments)
+    # pylint: disable=R0917
+    # Too many positional arguments (8/5)
     def __init__(
             self,
             repo: GitRepository,
@@ -408,7 +410,7 @@ class GitTreeObject(GitObject):
                 self.data[space_after_obj_type:null_char_after_obj_len]\
                         .decode("ascii"))
         if self.object_size != len(self.data)-null_char_after_obj_len-1:
-            raise Exception(f"Malformed object {self.object_hash}: bad length")
+            raise GFGError(f"Malformed object {self.object_hash}: bad length")
 
         # Read all the obhe
         idx = null_char_after_obj_len + 1
@@ -592,7 +594,7 @@ class GitBlobObject(GitObject):
         null_char_after_obj_len = self.data.find(b'\x00', space_after_obj_type)
         object_size = int(self.data[space_after_obj_type:null_char_after_obj_len].decode("ascii"))
         if object_size != len(self.data)-null_char_after_obj_len-1:
-            raise Exception(f"Malformed object {self.object_hash}: bad length")
+            raise GFGError(f"Malformed object {self.object_hash}: bad length")
 
         # Print the contents
         print(self.data[null_char_after_obj_len+1:].decode("ascii"), end="")

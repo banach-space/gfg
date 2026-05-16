@@ -116,7 +116,7 @@ def cmd_add(files, git_repo):
         index.add_file(file_to_add)
 
         data = GitBlobObject.get_packed_blob(file_to_add)
-        blob = GitBlobObject(repo, packed_data=data)
+        blob = GitBlobObject(git_repo, packed_data=data)
         blob.write()
 
 def create_new_tree(dir_path, git_repo, index):

@@ -696,7 +696,7 @@ class IndexEntry():
             len_in_b += self.name_len
         else:
             # Do it the hard way
-            raise Exception("GFG: Long path names are not supported")
+            raise GFGError("GFG: Long path names are not supported")
 
         # 1-8 nul bytes as necessary to pad the self to a multiple of
         # eight bytes while keeping the name NUL-terminated.  (Version 4)
