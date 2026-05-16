@@ -1,7 +1,7 @@
 Git From Glasgow
 ================
 
-[![unittests](https://github.com/banach-space/gfg/workflows/Ubuntu-unittests/badge.svg?branch=main)](https://github.com/banach-space/gfg/actions?query=workflow%3AUbuntu-unittests+branch%3Amain)
+[![unittests](https://github.com/banach-space/gfg/actions/workflows/Ubuntu-unittests.yml/badge.svg)](https://github.com/banach-space/gfg/actions/workflows/Ubuntu-unittests.yml)
 [![pylint](https://github.com/banach-space/gfg/workflows/Ubuntu-pylint/badge.svg)](https://github.com/banach-space/gfg/actions?query=workflow%3AUbuntu-pylint+branch%3Amain)
 
 A custom implementation of Git - for those curious how stuff works!
